@@ -81,6 +81,8 @@
     var image = 'nina.dzi';
     var protocol = 'deepzoom';
 
+    var buttons = ['reset','zoomIn','zoomOut', 'rotateLeft', 'rotateRight'];
+
     // Copyright or information message
     var credit = '&copy; copyright or information message';
 
@@ -89,6 +91,7 @@
 	server: server,
 	image: image,
 	protocol: protocol,
+	navigation: {buttons: buttons},
 	credit: credit
     });
 
