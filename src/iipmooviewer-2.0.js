@@ -272,7 +272,7 @@ var IIPMooViewer = new Class({
     }
 
     // Load our image mosaic
-    this.loadGrid();
+    this.arghview.fetch()
 
     // Create new annotations and attach the tooltip to them if it already exists
     if( this.annotations ){
@@ -281,183 +281,6 @@ var IIPMooViewer = new Class({
     }
   },
 
-
-
-  /* Create a grid of tiles with the appropriate tile request and positioning
-   */
-  loadGrid: function(){
-
-    var border = this.preload ? 1 : 0;
-    var view = this.getView();
-
-
-    // Get the start points for our tiles
-    var startx = Math.floor( view.x / this.tileSize.w ) - border;
-    var starty = Math.floor( view.y / this.tileSize.h ) - border;
-    if( startx<0 ) startx = 0;
-    if( starty<0 ) starty = 0;
-
-
-    // If our size is smaller than the display window, only get these tiles!
-    var len = Math.min(this.wid, view.w);
-    var endx =  Math.ceil( ((len + view.x)/this.tileSize.w) - 1 ) + border;
-
-
-    var len = Math.min(this.hei, view.h);
-    var endy = Math.ceil( ( (len + view.y)/this.tileSize.h) - 1 ) + border;
-
-
-    // Number of tiles is dependent on view width and height
-    var xtiles = Math.ceil( this.wid / this.tileSize.w );
-    var ytiles = Math.ceil( this.hei / this.tileSize.h );
-
-    endx = Math.min( endx, xtiles - 1 );
-    endy = Math.min( endy, ytiles - 1 );
-
-
-    /* Calculate the offset from the tile top left that we want to display.
-       Also Center the image if our viewable image is smaller than the window
-     */
-    var xoffset = Math.floor(view.x % this.tileSize.w);
-    if( this.wid < view.w ) xoffset -=  (view.w - this.wid)/2;
-
-    var yoffset = Math.floor(view.y % this.tileSize.h);
-    if( this.hei < view.h ) yoffset -= (view.h - this.hei)/2;
-
-    var tile;
-    var i, j, k, n;
-    var left, top;
-    k = 0;
-    n = 0;
-
-    var centerx = startx + Math.round((endx-startx)/2);
-    var centery = starty + Math.round((endy-starty)/2);
-
-    var map = new Array((endx-startx)*(endx-startx));
-    var newTiles = new Array((endx-startx)*(endx-startx));
-    newTiles.empty();
-
-    // Should put this into
-    var ntiles = 0;
-    for( j=starty; j<=endy; j++ ){
-      for (i=startx;i<=endx; i++) {
-
-	map[ntiles] = {};
-	if( this.render == 'spiral' ){
-	  // Calculate the distance from the centre of the image
-	  map[ntiles].n = Math.abs(centery-j)* Math.abs(centery-j) + Math.abs(centerx-i)*Math.abs(centerx-i);
-	}
-	// Otherwise do a random rendering
-	else map[ntiles].n = Math.random();
-
-	map[ntiles].x = i;
-	map[ntiles].y = j;
-	ntiles++;
-
-	k = i + (j*xtiles);
-	newTiles.push(k);
-
-      }
-    }
-
-    this.nTilesLoaded = 0;
-    this.nTilesToLoad = ntiles * this.images.length;
-
-    // Delete the tiles from our old image mosaic which are not in our new list of tiles
-    this.canvas.get('morph').cancel();
-    var _this = this;
-    this.canvas.getChildren('img').each( function(el){
-      var index = parseInt(el.retrieve('tile'));
-      if( !newTiles.contains(index) ){
-        el.destroy();
-	_this.tiles.erase(index);
-      }
-    });
-
-    map.sort(function s(a,b){return a.n - b.n;});
-
-    for( var m=0; m<ntiles; m++ ){
-
-      var i = map[m].x;
-      var j = map[m].y;
-
-      // Sequential index of the tile in the tif image
-      k = i + (j*xtiles);
-
-      if( this.tiles.contains(k) ){
-	this.nTilesLoaded += this.images.length;
-        if( this.navigation ) this.navigation.refreshLoadBar(this.nTilesLoaded,this.nTilesToLoad);
-	if( this.nTilesLoaded >= this.nTilesToLoad ) this.canvas.setStyle( 'cursor', null );
-	continue;
-      }
-
-      // Iterate over the number of layers we have
-      var n;
-      for(n=0;n<this.images.length;n++){
-
-        var tile = new Element('img', {
-          'class': 'layer'+n+' hidden',
-          'styles': {
-	    left: i*this.tileSize.w,
-	    top: j*this.tileSize.h
-          }
-        });
-	// Move this out of the main constructor to avoid DOM attribute bloat
-	if( this.effects ) tile.setStyle('opacity',0.1);
-
-	// Inject into our canvas
-	tile.inject(this.canvas);
-
-	// Get tile URL from our protocol object
-	var src = this.protocol.getTileURL({
-	  server: this.server,
-	  image:this.images[n].src,
-	  resolution: this.view.res,
-	  sds: (this.images[n].sds||'0,90'),
-          contrast: (this.images[n].cnt||null),
-	  gamma: (this.images[n].gam||null),
-	  shade: (this.images[n].shade||null),
-          tileindex: k,
-          x: i,
-          y: j
-	});
-
-	// Add our tile event functions after injection otherwise we get no event
-	tile.addEvents({
-	  'load': function(tile,id){
-	     if( this.effects ) tile.setStyle('opacity',1);
-	     tile.removeClass('hidden');
-	     if(!(tile.width&&tile.height)){
-	       tile.fireEvent('error');
-	       return;
-	     }
-	     this.nTilesLoaded++;
-	     if( this.navigation ) this.navigation.refreshLoadBar( this.nTilesLoaded, this.nTilesToLoad );
-	     if( this.nTilesLoaded >= this.nTilesToLoad ) this.canvas.setStyle( 'cursor', null );
-	     this.tiles.push(id); // Add to our list of loaded tiles
-	  }.bind(this,tile,k),
-	  'error': function(){
-	     // Try to reload if we have an error.
-	     // Add a suffix to prevent caching, but remove error event to avoid endless loops
-	     this.removeEvents('error');
-	     var src = this.src;
-	     this.set( 'src', src + '?'+ Date.now() );
-	  }
-	});
-
-	// We must set the source at the end so that the 'load' function is properly fired
-	tile.set( 'src', src );
-	tile.store('tile',k);
-
-        if( this.images[n].opacity !== 1 ){ // opacity is 1 by default.
-          var selector = 'img.layer'+ n;
-          this.canvas.getChildren(selector).setStyle( 'opacity', this.images[n].opacity );
-        }
-      }
-
-    }
-
-  },
 
 
   /* Get a URL for a screenshot of the current view region
@@ -1114,8 +937,8 @@ var IIPMooViewer = new Class({
       'html': '<div><div><h2><a href="http://iipimage.sourceforge.net"><img src="'+this.prefix+'iip.32x32.png"/></a>IIPMooViewer</h2>IIPImage HTML5 High Resolution Image Viewer - Version '+this.version+'<br/><ul><li>'+IIPMooViewer.lang.navigate+'</li><li>'+IIPMooViewer.lang.zoomIn+'</li><li>'+IIPMooViewer.lang.zoomOut+'</li><li>'+IIPMooViewer.lang.rotate+'</li><li>'+IIPMooViewer.lang.fullscreen+'<li>'+IIPMooViewer.lang.annotations+'</li><li>'+IIPMooViewer.lang.navigation+'</li></ul><br/>'+IIPMooViewer.lang.more+' <a href="http://iipimage.sourceforge.net">http://iipimage.sourceforge.net</a></div></div>'
     }).inject( this.container );
 
-    // Create our main window target div, add our events and inject inside the frame
-    this.canvas = new Element('div', {
+    // Create our main window target, add our events and inject inside the frame
+    this.canvas = new Element('canvas', {
       'class': 'canvas',
       'morph': {
 	transition: Fx.Transitions.Quad.easeInOut,
@@ -1125,6 +948,11 @@ var IIPMooViewer = new Class({
       }
     });
 
+    // Set the size of the canvas to match the container
+    this.canvas.setStyles({
+      width: this.container.getSize().w,
+      height: this.container.getSize().h
+    });
 
     // Add touch or drag events to our canvas
     if( 'ontouchstart' in window || navigator.msMaxTouchPoints ){
@@ -1160,6 +988,28 @@ var IIPMooViewer = new Class({
       'mouseleave': function(){ if( _this.navigation && _this.navigation.coords ) _this.navigation.coords.fade('out'); }
     });
 
+
+    // make the webgl viewer
+    this.arghview = new ArghView(this.canvas);
+    this.arghview.setSource(function(z, x, y) {
+            var k = x + (y * xtiles);
+
+            return this.protocol.getTileURL({
+                server: this.server,
+                image: this.images[0].src,
+                resolution: z,
+                sds: (this.images[0].sds||'0,90'),
+                contrast: (this.images[0].cnt||null),
+                gamma: (this.images[0].gam||null),
+                shade: (this.images[0].shade||null),
+                tileindex: k,
+                x: x,
+                y: y
+            });
+        }.bind(this),
+	    this.max_size, 
+	    this.tileSize, 
+	    this.num_resolutions);
 
     // Initialize canvas events for our annotations
     if( this.annotations ) this.initAnnotationTips();
@@ -1302,13 +1152,6 @@ var IIPMooViewer = new Class({
       this.centerTo( this.viewport.x, this.viewport.y );
     }
     else this.recenter();
-
-
-    // Set the size of the canvas to that of the full image at the current resolution
-    this.canvas.setStyles({
-      width: this.wid,
-      height: this.hei
-    });
 
 
     // Load our images
