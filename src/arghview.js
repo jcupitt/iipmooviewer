@@ -16,50 +16,64 @@
  *
  * canvas: the thing we create the WebGL context on ... we fill this with pixels
  */
-var ArghView = function(canvas) {
+var ArghView = function (canvas) {
     this.canvas = canvas;
     canvas.arghView = this;
-    canvas.width = canvas.getSize().x;
-    canvas.width = canvas.getSize().y;
 
-    // .set by setSorce() below
+    // .set by setSource() below
     this.tileURL = null;
-    this.max_size = null;
+    this.maxSize = null;
     this.tileSize = null;
-    this.num_resolutions = null;
+    this.numResolutions = null;
 
     // the current time, in ticks ... use for cache ejection
     this.time = 0;
 
-    // the position of the top-left corner of the canvas within the larger image
-    // we display
-    this.viewport_left = 0;
-    this.viewport_top = 0;
-    this.viewport_width = canvas.width;
-    this.viewport_height = canvas.height;
+    // the size of the canvas we render into
+    this.viewportWidth = canvas.clientWidth;
+    this.viewportHeight = canvas.clientHeight;
+
+    console.log("ArghView: viewportWidth = " + this.viewportWidth + 
+        ", viewportHeight = " + this.viewportHeight);
+
+    // from the top-left-hand corner of the image, the distance to move to get
+    // to the top-left-hand corner of the pixels we are displaying
+    this.viewportLeft = 0;
+    this.viewportTop = 0;
+
+    window.addEventListener('resize', function () {
+        this.viewportWidth = this.canvas.clientWidth;
+        this.viewportHeight = this.canvas.clientHeight;
+        console.log("ArghView: resize canvas to w = " + this.viewportWidth + 
+            ", h = " + this.viewportHeight);
+
+        // we may need to move the viewport, for example if we've sized the 
+        // image larger than the viewport
+        this.setPosition(this.viewportLeft, this.viewportTop);
+    }.bind(this));
 
     // then each +1 is a x2 layer larger
     this.layer = 0;
 
     // this gets populated once we know the tile source, see below
-    this.layer_properties = []
+    this.layerProperties = []
 
     // all our tiles in a flat array ... use this for things like cache 
     // ejection
     this.tiles = []
 
-    // index by layer, tile_y_number, tile_x_number
+    // index by layer, tile y, tile x
     this.cache = [];
 
     // max number of tiles we cache, set once we have a tile source
-    this.max_tiles = 0;
+    this.maxTiles = 0;
 
     this.initGL();
 };
 
 ArghView.prototype.constructor = ArghView;
 
-ArghView.prototype.vertex_shader_source = 
+ArghView.prototype.vertexShaderSource = 
 "    attribute vec2 aVertexPosition; " +
 "    attribute vec2 aTextureCoord; " +
 " " +
@@ -74,7 +88,7 @@ ArghView.prototype.vertex_shader_source =
 "	     vTextureCoord = aTextureCoord; " +
 "   }";
 
-ArghView.prototype.fragment_shader_source = 
+ArghView.prototype.fragmentShaderSource = 
 "    precision lowp float; " +
 " " +
 "    varying lowp vec2 vTextureCoord; " +
@@ -89,7 +103,7 @@ ArghView.prototype.fragment_shader_source =
 /* points is a 2D array of like [[x1, y1], [x2, y2], ..], make a 
  * draw buffer.
  */
-ArghView.prototype.bufferCreate = function(points) {
+ArghView.prototype.bufferCreate = function (points) {
     var gl = this.gl;
 
     var vertex = [];
@@ -98,36 +112,36 @@ ArghView.prototype.bufferCreate = function(points) {
         vertex.push(points[i][1]);
     }
 
-    var vertex_buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
+    var vertexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertex), gl.STATIC_DRAW);
-    vertex_buffer.itemSize = 2;
-    vertex_buffer.numItems = points.length;
+    vertexBuffer.itemSize = 2;
+    vertexBuffer.numItems = points.length;
 
-    return vertex_buffer;
+    return vertexBuffer;
 }
 
-ArghView.prototype.mvPushMatrix = function() {
+ArghView.prototype.mvPushMatrix = function () {
     var copy = mat4.create();
     mat4.set(this.mvMatrix, copy);
     this.mvMatrixStack.push(copy);
 }
 
-ArghView.prototype.mvPopMatrix = function() {
-    if (this.mvMatrixStack.length == 0) {
+ArghView.prototype.mvPopMatrix = function () {
+    if (this.mvMatrixStack.length === 0) {
         throw "Invalid popMatrix!";
     }
     this.mvMatrix = this.mvMatrixStack.pop();
 }
 
-ArghView.prototype.setMatrixUniforms = function() {
+ArghView.prototype.setMatrixUniforms = function () {
     this.gl.uniformMatrix4fv(this.program.pMatrixUniform, false, 
         this.pMatrix);
     this.gl.uniformMatrix4fv(this.program.mvMatrixUniform, false, 
         this.mvMatrix);
 }
 
-ArghView.prototype.initGL = function() {
+ArghView.prototype.initGL = function () {
     var gl;
 
     gl = WebGLUtils.setupWebGL(this.canvas);
@@ -136,11 +150,8 @@ ArghView.prototype.initGL = function() {
     }
     this.gl = gl;
 
-    gl.viewportWidth = this.canvas.width;
-    gl.viewportHeight = this.canvas.height;
-
     var vertexShader = gl.createShader(gl.VERTEX_SHADER);
-    gl.shaderSource(vertexShader, this.vertex_shader_source);
+    gl.shaderSource(vertexShader, this.vertexShaderSource);
     gl.compileShader(vertexShader);
 
     if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
@@ -149,7 +160,7 @@ ArghView.prototype.initGL = function() {
     }
 
     var fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-    gl.shaderSource(fragmentShader, this.fragment_shader_source);
+    gl.shaderSource(fragmentShader, this.fragmentShaderSource);
     gl.compileShader(fragmentShader);
 
     if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
@@ -185,8 +196,8 @@ ArghView.prototype.initGL = function() {
     this.mvMatrixStack = [];
 
     // we draw tiles as 1x1 squares, scaled, translated and textured
-    this.vertex_buffer = this.bufferCreate([[1, 1], [1, 0], [0, 1], [0, 0]]);
-    this.texture_coords_buffer = this.vertex_buffer; 
+    this.vertexBuffer = this.bufferCreate([[1, 1], [1, 0], [0, 1], [0, 0]]);
+    this.textureCoordsBuffer = this.vertexBuffer; 
 
     gl.clearColor(1.0, 1.0, 1.0, 1.0);
 }
@@ -194,39 +205,41 @@ ArghView.prototype.initGL = function() {
 /* Public: set the source for image tiles ... parameters matched to 
  * iipmooview.
  *
- * tileURL: function(z, x, y){} ... makes a URL to fetch a tile from
- * max_size: {w: .., h: ..} ... the dimensions of the largest layer, in pixels
+ * tileURL: function (z, x, y){} ... makes a URL to fetch a tile from
+ * maxSize: {w: .., h: ..} ... the dimensions of the largest layer, in pixels
  * tileSize: {w: .., h: ..} ... size of a tile, in pixels
- * num_resolutions: int ... number of layers
+ * numResolutions: int ... number of layers
  */
-ArghView.prototype.setSource = function(tileURL, max_size, 
-        tileSize, num_resolutions) {
+ArghView.prototype.setSource = function (tileURL, maxSize, 
+        tileSize, numResolutions) {
+    console.log("ArghView.setSource: ");
+
     this.tileURL = tileURL;
-    this.max_size = max_size;
+    this.maxSize = maxSize;
     this.tileSize = tileSize;
-    this.num_resolutions = num_resolutions;
+    this.numResolutions = numResolutions;
 
     // round n down to p boundary
-    function round_down(n, p) {
+    function roundDown(n, p) {
         return n - (n % p);
     }
 
     // round n up to p boundary
-    function round_up(n, p) {
-        return round_down(n + p - 1, p);
+    function roundUp(n, p) {
+        return roundDown(n + p - 1, p);
     }
 
     // need to calculate this from metadata ^^ above 
-    this.layer_properties = []
-    var width = max_size.w;
-    var height = max_size.h;
-    for (var i = num_resolutions - 1; i >= 0; i--) {
-        this.layer_properties[i] = {
-            shrink: 1 << (num_resolutions - i - 1),
+    this.layerProperties = []
+    var width = maxSize.w;
+    var height = maxSize.h;
+    for (var i = numResolutions - 1; i >= 0; i--) {
+        this.layerProperties[i] = {
+            shrink: 1 << (numResolutions - i - 1),
             width: width,
             height: height,
-            tiles_across: (round_up(width, tileSize.w) / tileSize.w) | 0,
-            tiles_down: (round_up(height, tileSize.h) / tileSize.h) | 0
+            tilesAcross: (roundUp(width, tileSize.w) / tileSize.w) | 0,
+            tilesDown: (roundUp(height, tileSize.h) / tileSize.h) | 0
         };
         width = (width / 2) | 0;
         height = (height / 2) | 0;
@@ -237,9 +250,9 @@ ArghView.prototype.setSource = function(tileURL, max_size,
     // we want to keep gpu mem use down, so enough tiles that we can paint the
     // viewport three times over ... consider a 258x258 viewport with 256x256
     // tiles, we'd need up to 9 tiles to paint it once
-    var tiles_across = 1 + Math.ceil(this.viewport_width / tileSize.w);
-    var tiles_down = 1 + Math.ceil(this.viewport_height / tileSize.h);
-    this.max_tiles = 3 * tiles_across * tiles_down; 
+    var tilesAcross = 1 + Math.ceil(this.viewportWidth / tileSize.w);
+    var tilesDown = 1 + Math.ceil(this.viewportHeight / tileSize.h);
+    this.maxTiles = 3 * tilesAcross * tilesDown; 
 
     // throw away any old state
     this.cache = [];
@@ -248,19 +261,22 @@ ArghView.prototype.setSource = function(tileURL, max_size,
 
 /* Public: set the layer being displayed.
  */
-ArghView.prototype.setLayer = function(layer) {
+ArghView.prototype.setLayer = function (layer) {
+    console.log("ArghView.setLayer: " + layer);
+
     this.time += 1;
 
-    console.log("setLayer: " + layer);
-    if (this.num_resolutions) { 
-        layer = Math.max(layer, 0);
-        layer = Math.min(layer, this.num_resolutions - 1);
-    }
-
+    layer = Math.max(layer, 0);
+    layer = Math.min(layer, this.numResolutions - 1);
     this.layer = layer;
+
+    console.log("  (layer set to " + layer + ")");
+
+    // we may need to move the image, for example to change the centreing 
+    this.setPosition(this.viewportLeft, this.viewportTop);
 };
 
-ArghView.prototype.getLayer = function() {
+ArghView.prototype.getLayer = function () {
     return this.layer;
 };
 
@@ -269,49 +285,61 @@ ArghView.prototype.getLayer = function() {
  * If we are zoomed out far enough that the image is smaller than the viewport,
  * centre the image.
  */
-ArghView.prototype.setPosition = function(viewport_left, viewport_top) {
+ArghView.prototype.setPosition = function (viewportLeft, viewportTop) {
+    console.log("ArghView.setPosition: " + viewportLeft + ", " + viewportTop);
+
     this.time += 1;
 
-    var layer_width = this.layer_properties[this.layer].width;
-    var layer_height = this.layer_properties[this.layer].height;
+    var layerWidth = this.layerProperties[this.layer].width;
+    var layerHeight = this.layerProperties[this.layer].height;
+
+    console.log("  (layer size is " + 
+            layerWidth + ", " + layerHeight + ")");
 
     // constrain to viewport
-    viewport_left = Math.max(viewport_left, 0);
-    viewport_left = Math.min(viewport_left, 
-            layer_width - this.viewport_width); 
-    viewport_top = Math.max(viewport_top, 0);
-    viewport_top = Math.min(viewport_top, 
-            layer_height - this.viewport_height); 
+    viewportLeft = Math.max(viewportLeft, 0);
+    viewportLeft = Math.min(viewportLeft, layerWidth - this.viewportWidth); 
+    viewportTop = Math.max(viewportTop, 0);
+    viewportTop = Math.min(viewportTop, layerHeight - this.viewportHeight); 
 
     // if image < viewport, force centre
-    if (layer_width < this.viewport_width) {
-        viewport_left = -(this.viewport_width - layer_width) / 2;
+    if (layerWidth < this.viewportWidth) {
+        viewportLeft = -(this.viewportWidth - layerWidth) / 2;
     }
-    if (layer_height < this.viewport_height) {
-        viewport_top = -(this.viewport_height - layer_height) / 2;
+    if (layerHeight < this.viewportHeight) {
+        viewportTop = -(this.viewportHeight - layerHeight) / 2;
     }
 
-    this.viewport_left = viewport_left;
-    this.viewport_top = viewport_top;
+    console.log("  (position set to " + 
+            viewportLeft + ", " + viewportTop + ")");
+
+    this.viewportLeft = viewportLeft;
+    this.viewportTop = viewportTop;
 };
 
 /* Public: get the position of the viewport within the larger image.
  */
-ArghView.prototype.getPosition = function() {
-    return {x: this.viewport_left, y: this.viewport_top};
+ArghView.prototype.getPosition = function () {
+    return {x: this.viewportLeft, y: this.viewportTop};
 };
 
 // draw a tile at a certain tileSize ... tiles can be drawn very large if we are
 // using a low-res tile as a placeholder while a high-res tile is being loaded
-ArghView.prototype.tileDraw = function(tile, tileSize) {
+ArghView.prototype.tileDraw = function (tile, tileSize) {
+
     var gl = this.gl;
-    var x = tile.tile_left * tileSize.w - this.viewport_left;
-    var y = tile.tile_top * tileSize.h - this.viewport_top;
+    var x = tile.tileLeft * tileSize.w - this.viewportLeft;
+    var y = tile.tileTop * tileSize.h - this.viewportTop;
+
+    console.log("ArghView.tileDraw: " + tile.tileLayer + ", " +
+        tile.tileLeft + ", " + tile.tileTop + " at pixel " +
+        "x = " + x + ", y = " + y + 
+        ", w = " + tileSize.w + ", h = " + tileSize.h);
 
     this.mvPushMatrix();
 
     mat4.translate(this.mvMatrix, 
-        [x, this.viewport_height - y - tileSize.h, 0]); 
+        [x, this.viewportHeight - y - tileSize.h, 0]); 
     mat4.scale(this.mvMatrix, [tileSize.w, tileSize.h, 1]);
     this.setMatrixUniforms();
 
@@ -319,23 +347,23 @@ ArghView.prototype.tileDraw = function(tile, tileSize) {
     gl.bindTexture(gl.TEXTURE_2D, tile);
     gl.uniform1i(this.program.tileTextureUniform, 0);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.texture_coords_buffer);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.textureCoordsBuffer);
     gl.enableVertexAttribArray(this.program.textureCoordAttribute);
     gl.vertexAttribPointer(this.program.textureCoordAttribute, 
-        this.texture_coords_buffer.itemSize, gl.FLOAT, false, 0, 0);
+        this.textureCoordsBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.vertex_buffer);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
     gl.enableVertexAttribArray(this.program.vertexPositionAttribute);
     gl.vertexAttribPointer(this.program.vertexPositionAttribute, 
-        this.vertex_buffer.itemSize, gl.FLOAT, false, 0, 0);
+        this.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, this.vertex_buffer.numItems);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, this.vertexBuffer.numItems);
 
     this.mvPopMatrix();
 };
 
 // get a tile from cache
-ArghView.prototype.tileGet = function(z, x, y) {
+ArghView.prototype.tileGet = function (z, x, y) {
     if (!this.cache[z]) {
         this.cache[z] = [];
     }
@@ -356,83 +384,83 @@ ArghView.prototype.tileGet = function(z, x, y) {
 }
 
 // add a tile to the cache
-ArghView.prototype.tileAdd = function(tile) {
-    if (!this.cache[tile.tile_layer]) {
-        this.cache[tile.tile_layer] = [];
+ArghView.prototype.tileAdd = function (tile) {
+    if (!this.cache[tile.tileLayer]) {
+        this.cache[tile.tileLayer] = [];
     }
-    var layer = this.cache[tile.tile_layer];
+    var layer = this.cache[tile.tileLayer];
 
-    if (!layer[tile.tile_top]) {
-        layer[tile.tile_top] = [];
+    if (!layer[tile.tileTop]) {
+        layer[tile.tileTop] = [];
     }
-    var row = layer[tile.tile_top];
+    var row = layer[tile.tileTop];
 
-    if (row[tile.tile_left]) {
+    if (row[tile.tileLeft]) {
         throw "tile overwritten!?!?!";
     }
 
-    row[tile.tile_left] = tile;
+    row[tile.tileLeft] = tile;
     tile.time = this.time;
     this.tiles.push(tile);
 }
 
 // delete the final tile in the tile list
-ArghView.prototype.tilePop = function() {
+ArghView.prototype.tilePop = function () {
     var tile = this.tiles.pop();
-    console.log("tilePop: " + tile.tile_layer + ", " + tile.tile_left + 
-            ", " + tile.tile_top);
-    var layer = this.cache[tile.tile_layer];
-    var row = layer[tile.tile_top];
-    delete row[tile.tile_left];
+    console.log("ArghView.tilePop: " + tile.tileLayer + ", " + tile.tileLeft + 
+            ", " + tile.tileTop);
+    var layer = this.cache[tile.tileLayer];
+    var row = layer[tile.tileTop];
+    delete row[tile.tileLeft];
 }
 
 // if the cache has filled, trim it
 //
 // try to keep tiles in layer 0 and 1, and tiles in the current layer
-ArghView.prototype.cacheTrim = function() {
-    if (this.tiles.length > this.max_tiles) {
+ArghView.prototype.cacheTrim = function () {
+    if (this.tiles.length > this.maxTiles) {
         var time = this.time;
         var layer = this.layer;
 
-        var n_tiles = this.tiles.length;
-        for (var i = 0; i < n_tiles; i++) {
+        var nTiles = this.tiles.length;
+        for (var i = 0; i < nTiles; i++) {
             var tile = this.tiles[i];
 
             // calculate a "badness" score ... old tiles are bad, tiles 
             // outside the current layer are very bad, tiles in the top two 
             // layers are very good
             tile.badness = (time - tile.time) + 
-                100 * Math.abs(layer - tile.tile_layer) -
-                1000 * Math.max(0, 2 - tile.tile_layer);
+                100 * Math.abs(layer - tile.tileLayer) -
+                1000 * Math.max(0, 2 - tile.tileLayer);
         }
 
         // sort tiles most precious first
-        this.tiles.sort(function(a, b) {
+        this.tiles.sort(function (a, b) {
             return a.badness - b.badness;
         });
 
         /*
-        console.log("cacheTrim: after sort, tiles are:")
+        console.log("ArghView.cacheTrim: after sort, tiles are:")
         console.log("  layer, left, top, age, badness")
         for (var i = 0; i < this.tiles.length; i++) {
             var tile = this.tiles[i];
 
-            console.log("  " + tile.tile_layer + ", " + tile.tile_left + ", " +
-                tile.tile_top + ", " + (time - tile.time) + 
+            console.log("  " + tile.tileLayer + ", " + tile.tileLeft + ", " +
+                tile.tileTop + ", " + (time - tile.time) + 
                 ", " + tile.badness);
         }
          */
 
-        while (this.tiles.length > 0.8 * this.max_tiles) {
+        while (this.tiles.length > 0.8 * this.maxTiles) {
             this.tilePop();
         }
     }
 };
 
-ArghView.prototype.loadTexture = function(url) { 
+ArghView.prototype.loadTexture = function (url) { 
     var gl = this.gl;
 
-    console.log("loadTexture: " + url);
+    console.log("ArghView.loadTexture: " + url);
 
     var tex = gl.createTexture();
 
@@ -445,7 +473,7 @@ ArghView.prototype.loadTexture = function(url) {
 
     var img = new Image();
     img.src = url;
-    img.onload = function() {
+    img.onload = function () {
         gl.bindTexture(gl.TEXTURE_2D, tex);
         gl.texImage2D(gl.TEXTURE_2D, 
         0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
@@ -459,53 +487,60 @@ ArghView.prototype.loadTexture = function(url) {
 }
 
 // fetch a tile into cache
-ArghView.prototype.tileFetch = function(z, x, y) {
-    var tile_left = (x / this.tileSize.w) | 0;
-    var tile_top = (y / this.tileSize.h) | 0;
-    var tile = this.tileGet(z, tile_left, tile_top);
+ArghView.prototype.tileFetch = function (z, x, y) {
+    var tileLeft = (x / this.tileSize.w) | 0;
+    var tileTop = (y / this.tileSize.h) | 0;
+    var tile = this.tileGet(z, tileLeft, tileTop);
 
     if (!tile) { 
-        if (tile_left >= 0 &&
-            tile_top >= 0 &&
-            tile_left < this.layer_properties[z].tiles_across &&
-            tile_top < this.layer_properties[z].tiles_down) {
-            var url = this.tileURL(z, tile_left, tile_top); 
-            var new_tile = this.loadTexture(url); 
-            new_tile.view = this;
-            new_tile.tile_left = tile_left;
-            new_tile.tile_top = tile_top;
-            new_tile.tile_layer = z;
-            this.tileAdd(new_tile);
+        if (tileLeft >= 0 &&
+            tileTop >= 0 &&
+            tileLeft < this.layerProperties[z].tilesAcross &&
+            tileTop < this.layerProperties[z].tilesDown) {
+            var url = this.tileURL(z, tileLeft, tileTop); 
+            var newTile = this.loadTexture(url); 
+            newTile.view = this;
+            newTile.tileLeft = tileLeft;
+            newTile.tileTop = tileTop;
+            newTile.tileLayer = z;
+            this.tileAdd(newTile);
 
-            new_tile.onload = function() {
-                new_tile.view.draw();
+            newTile.onload = function () {
+                console.log("ArghView.tileFetch: arrival of " + 
+                        newTile.tileLayer + ", " + newTile.tileLeft + 
+                        ", " + newTile.tileTop);
+                newTile.view.draw();
             };
         }
     }
 }
 
 // draw a tile from cache
-ArghView.prototype.cacheTileDraw = function(tileSize, z, x, y) {
-    var tile_left = (x / tileSize.w) | 0;
-    var tile_top = (y / tileSize.h) | 0;
-    var tile = this.tileGet(z, tile_left, tile_top);
+ArghView.prototype.cacheTileDraw = function (tileSize, z, x, y) {
+    var tileLeft = (x / tileSize.w) | 0;
+    var tileTop = (y / tileSize.h) | 0;
+    var tile = this.tileGet(z, tileLeft, tileTop);
 
     if (tile) {
-        //console.log("cacheTileDraw: " + z + ", " + tile_left + ", " + tile_top);
         this.tileDraw(tile, tileSize);
     }
 }
 
 // scan the cache, drawing all visible tiles from layer 0 down to this layer
-ArghView.prototype.draw = function() {
+ArghView.prototype.draw = function () {
+    console.log("ArghView.draw");
+
     var gl = this.gl;
 
     this.time += 1;
 
-    mat4.ortho(0, gl.viewportWidth, 0, gl.viewportHeight, 0.1, 100, 
+    mat4.ortho(0, this.viewportWidth, 0, this.viewportHeight, 0.1, 100, 
         this.pMatrix);
     mat4.identity(this.mvMatrix);
     mat4.translate(this.mvMatrix, [0, 0, -1]);
+
+    gl.viewport(0, 0, this.viewportWidth, this.viewportHeight);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     for (var z = 0; z <= this.layer; z++) { 
         // we draw tiles at this layer at 1:1, tiles above this we double 
@@ -516,13 +551,13 @@ ArghView.prototype.draw = function() {
         };
 
         // move left and up to tile boundary
-        var start_left = ((this.viewport_left / tileSize.w) | 0) * tileSize.w;
-        var start_top = ((this.viewport_top / tileSize.h) | 0) * tileSize.h;
-        var right = this.viewport_left + this.viewport_width;
-        var bottom = this.viewport_top + this.viewport_height;
+        var startLeft = ((this.viewportLeft / tileSize.w) | 0) * tileSize.w;
+        var startTop = ((this.viewportTop / tileSize.h) | 0) * tileSize.h;
+        var right = this.viewportLeft + this.viewportWidth;
+        var bottom = this.viewportTop + this.viewportHeight;
 
-        for (var y = start_top; y < bottom; y += tileSize.h) { 
-            for (var x = start_left; x < right; x += tileSize.w) { 
+        for (var y = startTop; y < bottom; y += tileSize.h) { 
+            for (var x = startLeft; x < right; x += tileSize.w) { 
                 this.cacheTileDraw(tileSize, z, x, y); 
             }
         }
@@ -530,29 +565,25 @@ ArghView.prototype.draw = function() {
 };
 
 // fetch the tiles we need to display the current viewport, and draw it
-ArghView.prototype.fetch = function() {
+ArghView.prototype.fetch = function () {
+    console.log("ArghView.fetch");
+
     var gl = this.gl;
 
     this.time += 1;
 
-    /* Clear before fetch, not before draw. Each fetch can result in many draw
-     * passes as tiles arrive, we don't want to wipe each time.
-     */
-    gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
     this.cacheTrim();
 
     // move left and up to tile boundary
-    var start_left = 
-        ((this.viewport_left / this.tileSize.w) | 0) * this.tileSize.w;
-    var start_top = 
-        ((this.viewport_top / this.tileSize.h) | 0) * this.tileSize.h;
-    var right = this.viewport_left + this.viewport_width;
-    var bottom = this.viewport_top + this.viewport_height;
+    var startLeft = 
+        ((this.viewportLeft / this.tileSize.w) | 0) * this.tileSize.w;
+    var startTop = 
+        ((this.viewportTop / this.tileSize.h) | 0) * this.tileSize.h;
+    var right = this.viewportLeft + this.viewportWidth;
+    var bottom = this.viewportTop + this.viewportHeight;
 
-    for (var y = start_top; y < bottom; y += this.tileSize.h) { 
-        for (var x = start_left; x < right; x += this.tileSize.w) { 
+    for (var y = startTop; y < bottom; y += this.tileSize.h) { 
+        for (var x = startLeft; x < right; x += this.tileSize.w) { 
             this.tileFetch(this.layer, x, y); 
         }
     }
