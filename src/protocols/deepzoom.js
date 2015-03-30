@@ -29,7 +29,7 @@ Protocols.DeepZoom = new Class({
     var result = {
       'max_size': { w: w, h: h },
       'tileSize': { w: ts, h: ts },
-      'num_resolutions': Math.ceil( Math.log(max)/Math.LN2 )
+      'num_resolutions': Math.ceil( Math.log(max) / Math.LN2 )
     };
     return result;
   },

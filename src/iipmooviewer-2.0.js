@@ -42,6 +42,8 @@
               server: the iipsrv server full URL (defaults to "/fcgi-bin/iipsrv.fcgi")
 	      credit: image copyright or information (optional)
 	      prefix: path prefix if images or javascript subdirectory moved (default 'images/')
+              render: tile rendering style - 'spiral' for a spiral from the centre or
+                      'random' for a rendering of tiles in a random order
 	      scale: pixels per mm
 	      showNavWindow: whether to show the navigation window. Default true
 	      showNavButtons: whether to show the navigation buttons. Default true
@@ -50,7 +52,6 @@
 	      enableFullscreen: allow full screen mode. Default true
 	      viewport: object containing x, y, resolution, rotation of initial view
 	      winResize: whether view is reflowed on window resize. Default true
-	      preload: load extra surrounding tiles
 	      navigation: a hash containing options for the navigation box:
 	         (a) id: the id of the element where the navigation box will be embedded. 
 	                 Defaults to the main container.
@@ -83,6 +84,8 @@ var IIPMooViewer = new Class({
     this.source = main_id || alert( 'No element ID given to IIPMooViewer constructor' );
 
     this.server = options.server || '/fcgi-bin/iipsrv.fcgi';
+
+    this.render = options.render || 'spiral';
 
     // Set the initial zoom resolution and viewport - if it's not been set manually, check for a hash tag
     this.viewport = null;
@@ -182,10 +185,6 @@ var IIPMooViewer = new Class({
     }
 
 
-    // Preload tiles surrounding view window?
-    this.preload = (options.preload == true) ? true : false;
-    this.effects = false;
-
     // Set up our annotations if they have been set and our annotation functions implemented
     this.annotations = ((typeof(this.initAnnotationTips)=="function")&&options.annotations)? options.annotations : null;
 
@@ -210,6 +209,7 @@ var IIPMooViewer = new Class({
     };
 
     this.tileSize = {};       // Tile size in pixels {w,h}
+
 
     // CSS3: Need to prefix depending on browser. Cannot handle IE<9
     this.CSSprefix = '';
@@ -240,8 +240,30 @@ var IIPMooViewer = new Class({
    */
   requestImages: function() {
 
-    // Load our image mosaic
-    this.arghView.fetch()
+    // Set our rotation origin - calculate differently if canvas is smaller than view port
+    
+    if( !Browser.buggy ){
+      var view = this.getView();
+      var wid = this.wid;
+      var hei = this.hei;
+      // Adjust width and height if we have a 90 or -90 rotation
+      if( Math.abs(this.view.rotation % 180) == 90 ){
+	wid = this.hei;
+	hei = this.wid;
+      }
+      var origin_x = this.wid > this.view.w ? 
+          Math.round(this.view.x + this.view.w / 2) : 
+          Math.round(this.wid / 2);
+      var origin_y = this.hei > this.view.h ? 
+          Math.round(this.view.y + this.view.h / 2) : 
+          Math.round(this.hei / 2);
+      var origin = origin_x + "px " + origin_y + "px";
+      this.canvas.setStyle( this.CSSprefix+'transform-origin', origin );
+
+      this.arghView.setLayer(this.view.res);
+      this.arghView.setPosition(this.view.x, this.view.y);
+      this.arghView.fetch();
+    }
 
     // Create new annotations and attach the tooltip to them if it already exists
     if( this.annotations ){
@@ -249,7 +271,6 @@ var IIPMooViewer = new Class({
       if( this.annotationTip ) this.annotationTip.attach( this.canvas.getChildren('div.annotation') );
     }
   },
-
 
 
   /* Get a URL for a screenshot of the current view region
@@ -438,14 +459,29 @@ var IIPMooViewer = new Class({
    */
   scrollNavigation: function( e ) {
 
+    // Cancel any running morphs on the canvas
+    this.canvas.get('morph').cancel();
+
     var xmove = Math.round(e.x * this.wid);
     var ymove = Math.round(e.y * this.hei);
+
+    // Only morph transition if we have moved a short distance and our rotation is zero
+    var morphable = Math.abs(xmove-this.view.x)<this.view.w/2 && Math.abs(ymove-this.view.y)<this.view.h/2 && this.view.rotation==0;
 
     this.view.x = xmove;
     this.view.y = ymove;
 
-    this.positionCanvas();
-    this.requestImages();      
+    if( morphable ){
+      this.canvas.morph({
+	left: (this.wid>this.view.w)? -xmove : Math.round((this.view.w-this.wid)/2),
+	top: (this.hei>this.view.h)? -ymove : Math.round((this.view.h-this.hei)/2)
+      });
+    }
+    else{
+      this.positionCanvas();
+      // The morph event automatically calls requestImages
+      this.requestImages();      
+    }
 
     if(IIPMooViewer.sync) IIPMooViewer.windows(this).invoke( 'moveTo', xmove, ymove );
 
@@ -457,8 +493,11 @@ var IIPMooViewer = new Class({
    */
   scroll: function(e) {
 
-    // Use values directly as getPosition will take into account rotation
-    var pos = this.arghView.getPosition();
+    var pos = {};
+
+    // Use style values directly as getPosition will take into account rotation
+    pos.x = this.canvas.getStyle('left').toInt();
+    pos.y = this.canvas.getStyle('top').toInt();
 
     var xmove =  -pos.x;
     var ymove =  -pos.y;
@@ -576,7 +615,15 @@ var IIPMooViewer = new Class({
       rdy = dx;
     }
 
-    this.moveTo( this.view.x+rdx, this.view.y+rdy );
+    // Morph is buggy for rotated images, so only use for no rotation
+    if( rotation == 0 ){
+      this.checkBounds(this.view.x+rdx,this.view.y+rdy);
+      this.canvas.morph({
+        left: (this.wid>this.view.w)? -this.view.x : Math.round((this.view.w-this.wid)/2),
+        top: (this.hei>this.view.h)? -this.view.y : Math.round((this.view.h-this.hei)/2)
+      });
+    }
+    else this.moveTo( this.view.x+rdx, this.view.y+rdy );
 
     this.updateNavigation();
   },
@@ -612,13 +659,12 @@ var IIPMooViewer = new Class({
       if( cc != "zone" & cc != 'navimage' ){
 	// Get position, but we need to use our canvas style values directly as getPosition()
 	// mis-calculates for rotated images
-        pos = this.arghView.getPosition();
 	var cpos = this.containerPosition;
 	pos = {
-	  x: pos.x + cpos.x,
-	  y: pos.y + cpos.y
+	  x: this.canvas.style.left.toInt() + cpos.x,
+	  y: this.canvas.style.top.toInt() + cpos.y
 	};
-
+	
 	// Center our zooming on the mouse position when over the main target window
 	this.view.x = event.page.x - pos.x - Math.floor(this.view.w/2);
 	this.view.y = event.page.y - pos.y - Math.floor(this.view.h/2);
@@ -720,11 +766,15 @@ var IIPMooViewer = new Class({
     if( this.view.y < 0 ) this.view.y = 0;
 
     this.positionCanvas();
+    this.canvas.setStyles({
+      width: this.wid,
+      height: this.hei
+    });
 
-    // Constrain our canvas to our containing div
+    // Contstrain our canvas to our containing div
     this.constrain();
 
-    this.arghView.fetch();
+    this.requestImages();
 
     this.updateNavigation();
     if( this.navigation ) this.navigation.setCoords('');
@@ -872,14 +922,17 @@ var IIPMooViewer = new Class({
       'html': '<div><div><h2><a href="http://iipimage.sourceforge.net"><img src="'+this.prefix+'iip.32x32.png"/></a>IIPMooViewer</h2>IIPImage HTML5 High Resolution Image Viewer - Version '+this.version+'<br/><ul><li>'+IIPMooViewer.lang.navigate+'</li><li>'+IIPMooViewer.lang.zoomIn+'</li><li>'+IIPMooViewer.lang.zoomOut+'</li><li>'+IIPMooViewer.lang.rotate+'</li><li>'+IIPMooViewer.lang.fullscreen+'<li>'+IIPMooViewer.lang.annotations+'</li><li>'+IIPMooViewer.lang.navigation+'</li></ul><br/>'+IIPMooViewer.lang.more+' <a href="http://iipimage.sourceforge.net">http://iipimage.sourceforge.net</a></div></div>'
     }).inject( this.container );
 
-    // Create our main window target, add our events and inject inside the frame
-    this.canvas = new Element('canvas', {class: 'canvas'});
-
-    // Set the size of the canvas to match the container
-    this.canvas.setStyles({
-      width: this.container.getSize().w,
-      height: this.container.getSize().h
+    // Create our main window target div, add our events and inject inside the frame
+    this.canvas = new Element('div', {
+      'class': 'canvas',
+      'morph': {
+	transition: Fx.Transitions.Quad.easeInOut,
+	onComplete: function(){
+	  _this.requestImages();
+	}
+      }
     });
+
 
     // Add touch or drag events to our canvas
     if( 'ontouchstart' in window || navigator.msMaxTouchPoints ){
@@ -890,7 +943,6 @@ var IIPMooViewer = new Class({
       // Create our main view drag object for our canvas.
       // Add synchronization via the Drag complete hook as well as coordinate updating
       var coordsBind = this.updateCoords.bind(this);
-      /*
       this.touch = new Drag( this.canvas, {
 	onStart: function(){
 	  _this.canvas.addClass('drag');
@@ -902,7 +954,6 @@ var IIPMooViewer = new Class({
 	  _this.canvas.addEvent('mousemove:throttle(75)',coordsBind);
 	}
       });
-       */
     }
 
 
@@ -917,30 +968,6 @@ var IIPMooViewer = new Class({
       'mouseleave': function(){ if( _this.navigation && _this.navigation.coords ) _this.navigation.coords.fade('out'); }
     });
 
-
-    // make the webgl viewer
-    this.arghView = new ArghView(this.canvas);
-    this.arghView.setSource(function(z, x, y) {
-            var xtiles = Math.ceil( this.wid / this.tileSize.h );
-
-            var k = x + (y * xtiles);
-
-            return this.protocol.getTileURL({
-                server: this.server,
-                image: this.images[0].src,
-                resolution: z,
-                sds: (this.images[0].sds||'0,90'),
-                contrast: (this.images[0].cnt||null),
-                gamma: (this.images[0].gam||null),
-                shade: (this.images[0].shade||null),
-                tileindex: k,
-                x: x,
-                y: y
-            });
-        }.bind(this),
-	    this.max_size, 
-	    this.tileSize, 
-	    this.num_resolutions);
 
     // Initialize canvas events for our annotations
     if( this.annotations ) this.initAnnotationTips();
@@ -1085,6 +1112,48 @@ var IIPMooViewer = new Class({
     else this.recenter();
 
 
+    // Set the size of the canvas to that of the full image at the current resolution
+    this.canvas.setStyles({
+      width: this.wid,
+      height: this.hei
+    });
+
+    // Make the webgl canvas we draw the tiles to. This exactly fills the
+    // container and then doesn't move. We use ArghView.setPosition() to
+    // scroll it.
+    this.arghViewCanvas = new Element('canvas');
+    this.arghViewCanvas.inject(this.container);
+
+    // Set the size of the arghViewCanvas to match the container
+    this.arghViewCanvas.setStyles({
+      width: this.container.clientWidth,
+      height: this.container.clientHeight
+    });
+
+    // Attach the viewer to the canvas
+    this.arghView = new ArghView(this.arghViewCanvas);
+    this.arghView.setSource(function (z, x, y) {
+            var xtiles = Math.ceil( this.wid / this.tileSize.h );
+
+            var k = x + (y * xtiles);
+
+            return this.protocol.getTileURL({
+                server: this.server,
+                image: this.images[0].src,
+                resolution: z,
+                sds: (this.images[0].sds || '0,90'),
+                contrast: (this.images[0].cnt || null),
+                gamma: (this.images[0].gam || null),
+                shade: (this.images[0].shade || null),
+                tileindex: k,
+                x: x,
+                y: y
+            });
+        }.bind(this),
+	    this.max_size, 
+	    this.tileSize, 
+	    this.num_resolutions);
+
     // Load our images
     this.requestImages();
     this.updateNavigation();
@@ -1225,12 +1294,6 @@ var IIPMooViewer = new Class({
     this.view.w = target_size.x;
     this.view.h = target_size.y;
 
-    // Set the size of the canvas to match the container
-    this.canvas.setStyles({
-      width: this.view.w,
-      height: this.view.h
-    });
-
     // Constrain our canvas if it is smaller than the view window
     this.positionCanvas();
 
@@ -1259,28 +1322,8 @@ var IIPMooViewer = new Class({
    */
   reload: function(){
 
-    this.arghView.setSource(function(z, x, y) {
-            var xtiles = Math.ceil( this.wid / this.tileSize.h );
-
-            var k = x + (y * xtiles);
-
-            return this.protocol.getTileURL({
-                server: this.server,
-                image: this.images[0].src,
-                resolution: z,
-                sds: (this.images[0].sds||'0,90'),
-                contrast: (this.images[0].cnt||null),
-                gamma: (this.images[0].gam||null),
-                shade: (this.images[0].shade||null),
-                tileindex: k,
-                x: x,
-                y: y
-            });
-        }.bind(this),
-	    this.max_size, 
-	    this.tileSize, 
-	    this.num_resolutions);
-
+    // First cancel any effects on the canvas 
+    this.canvas.get('morph').cancel();
     this.calculateSizes();
 
     // Resize the main tile canvas
@@ -1295,6 +1338,12 @@ var IIPMooViewer = new Class({
       this.centerTo( this.viewport.x, this.viewport.y );
     }
     else this.recenter();
+
+    this.canvas.setStyles({
+      width: this.wid,
+      height: this.hei
+    });
+
 
     this.reflow();
 
@@ -1326,6 +1375,8 @@ var IIPMooViewer = new Class({
   },
 
 
+  /* Constrain the movement of our canvas to our containing div
+   */
   constrain: function(){
 
     var ax = this.wid<this.view.w ? Array(Math.round((this.view.w-this.wid)/2), Math.round((this.view.w-this.wid)/2)) : Array(this.view.w-this.wid,0);
@@ -1337,8 +1388,10 @@ var IIPMooViewer = new Class({
   /* Correctly position the canvas, taking into account images smaller than the viewport
    */
   positionCanvas: function(){
-      this.arghView.setLayer(this.view.res);
-      this.arghView.setPosition(this.view.x, this.view.y); 
+    this.canvas.setStyles({
+      left: (this.wid>this.view.w)? -this.view.x : Math.round((this.view.w-this.wid)/2),
+      top : (this.hei>this.view.h)? -this.view.y : Math.round((this.view.h-this.hei)/2)
+    });
   },
 
 
