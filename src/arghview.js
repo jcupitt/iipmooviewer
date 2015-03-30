@@ -20,7 +20,7 @@ var ArghView = function (canvas) {
     this.canvas = canvas;
     canvas.arghView = this;
 
-    // .set by setSource() below
+    // set by setSource() below
     this.tileURL = null;
     this.maxSize = null;
     this.tileSize = null;
@@ -40,17 +40,6 @@ var ArghView = function (canvas) {
     // to the top-left-hand corner of the pixels we are displaying
     this.viewportLeft = 0;
     this.viewportTop = 0;
-
-    window.addEventListener('resize', function () {
-        this.viewportWidth = this.canvas.clientWidth;
-        this.viewportHeight = this.canvas.clientHeight;
-        this.log("ArghView: resize canvas to w = " + this.viewportWidth + 
-            ", h = " + this.viewportHeight);
-
-        // we may need to move the viewport, for example if we've sized the 
-        // image larger than the viewport
-        this.setPosition(this.viewportLeft, this.viewportTop);
-    }.bind(this));
 
     // then each +1 is a x2 layer larger
     this.layer = 0;
@@ -78,7 +67,7 @@ ArghView.prototype.log = function (str, options) {
     var level = options.level || 2;
 
     // higher numbers mean more important messages  
-    var loggingLevel = 3;
+    var loggingLevel = 4;
 
     if (level >= loggingLevel) {
         console.log(str);
@@ -547,6 +536,20 @@ ArghView.prototype.draw = function () {
     var gl = this.gl;
 
     this.time += 1;
+
+    // have we resized since the last draw?
+    var width = gl.canvas.clientWidth;
+    var height = gl.canvas.clientHeight;
+    if (gl.canvas.width != width ||
+        gl.canvas.height != height) {
+        gl.canvas.width = width;
+        gl.canvas.height = height;
+        this.viewportWidth = width;
+        this.viewportHeight = height;
+
+        // we may need to recentre
+        this.setPosition(this.viewportLeft, this.viewportTop);
+    }
 
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
