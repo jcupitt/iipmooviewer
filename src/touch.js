@@ -95,6 +95,11 @@ IIPMooViewer.implement({
 
 	    _this.canvas.setStyle( _this.CSSprefix+'transform', transform );
 
+        // we update the view.x at the end of the drag ... during the drag, just
+        // give the tile viewer the position to keep the screen updated
+	    _this.arghView.setPosition(view_x, view_y);
+	    _this.arghView.fetch();
+
 	  }
 	  // For multitouch events, track our end positions
 	  if( e.touches.length == 2 ){
