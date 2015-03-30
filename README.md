@@ -138,8 +138,6 @@ at resolution 4 with the center of the view port at both 90% of the size of the 
 
 <b>protocol</b> : protocol to use with the server: iip, zoomify or deepzoom [default: "iip"]
 
-<b>preload</b> : preload an extra layer of tiles surrounding the viewport [default: false]
-
 <b>annotations</b> : An object containing object structures with parameters "x", "y", "w", "h", "title", "text", "category" where x, y, w and h are the position and size of the annotation in relative [0-1] values, title is an optional title for the annotation, category is an optional category for the annotation and text is the body of the annotation
 
 

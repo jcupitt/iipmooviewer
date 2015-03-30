@@ -89,10 +89,19 @@
     // Copyright or information message
     var credit = '&copy; copyright or information message';
 
+    // a test annotation
+    var annotations = [{
+	x: 0.1, y: 0.1, w: 0.2, h: 0.2,
+	title: "Test annotation",
+	text: "This is some test text for the annotation.",
+	category: "test"
+    }];
+
     // Create our iipmooviewer object
     new IIPMooViewer( "viewer", {
 	server: server,
 	image: image,
+	annotations : annotations,
 	protocol: protocol,
 	navigation: {buttons: buttons},
 	credit: credit
