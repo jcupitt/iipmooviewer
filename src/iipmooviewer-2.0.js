@@ -488,7 +488,6 @@ var IIPMooViewer = new Class({
   },
 
 
-
   /* Scroll from a drag event on the tile canvas
    */
   scroll: function(e) {
@@ -522,7 +521,6 @@ var IIPMooViewer = new Class({
     // Need to do the moveTo rather than just requestImages() to avoid problems with rotated views 
     this.moveTo( xmove, ymove );
 
-    if( IIPMooViewer.sync ) IIPMooViewer.windows(this).invoke( 'moveTo', xmove, ymove );
 
   },
 
@@ -948,8 +946,12 @@ var IIPMooViewer = new Class({
 	  _this.canvas.addClass('drag');
 	  _this.canvas.removeEvent('mousemove:throttle(75)',coordsBind);
         },
+        onDrag: function() {
+	  _this.scroll();
+        },
         onComplete: function(){
 	  _this.scroll();
+          if( IIPMooViewer.sync ) IIPMooViewer.windows(this).invoke( 'moveTo', xmove, ymove );
 	  _this.canvas.removeClass('drag');
 	  _this.canvas.addEvent('mousemove:throttle(75)',coordsBind);
 	}
@@ -1308,6 +1310,12 @@ var IIPMooViewer = new Class({
       this.scale.update( this.wid/this.max_size.w, this.view.w );
       this.scale.reflow(this.container);
     }
+
+    // Set the size of the arghViewCanvas to match the container
+    this.arghViewCanvas.setStyles({
+      width: this.container.clientWidth,
+      height: this.container.clientHeight
+    });
 
     // Update images
     this.requestImages();

@@ -78,7 +78,7 @@ ArghView.prototype.log = function (str, options) {
     var level = options.level || 2;
 
     // higher numbers mean more important messages  
-    var loggingLevel = 1;
+    var loggingLevel = 3;
 
     if (level >= loggingLevel) {
         console.log(str);
@@ -211,8 +211,8 @@ ArghView.prototype.initGL = function () {
     this.vertexBuffer = this.bufferCreate([[1, 1], [1, 0], [0, 1], [0, 0]]);
     this.textureCoordsBuffer = this.vertexBuffer; 
 
-    // white background
-    gl.clearColor(1.0, 1.0, 1.0, 1.0);
+    // black background
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
 }
 
 /* Public: set the source for image tiles ... parameters matched to 
@@ -482,9 +482,20 @@ ArghView.prototype.loadTexture = function (url) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
+    var tileSize = this.tileSize;
     var img = new Image();
     img.src = url;
     img.onload = function () {
+        // we may have overlaps, or edge tiles may be smaller than tilesize
+        if (img.width != tileSize.w || img.height != tileSize.h) {
+            var canvas = document.createElement("canvas");
+            canvas.width = tileSize.w;
+            canvas.height = tileSize.h;
+            var ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0);
+            img = canvas;
+        }
+
         gl.bindTexture(gl.TEXTURE_2D, tex);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, 
                 gl.UNSIGNED_BYTE, img);
