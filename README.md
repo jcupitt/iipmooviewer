@@ -3,8 +3,10 @@
 This branch is for experimenting with WebGL tile rendering in the hope that we
 can get this viewer to display RTI images.
 
-See https://github.com/jcupitt/maps-viewer-webgl for a test WebGL viewer: we
-aim to paste that backend into iipmooviewer.
+See http://jcupitt.github.io/iipmooviewer to try this viewer out. 
+
+See https://github.com/jcupitt/maps-viewer-webgl for the WebGL viewer
+component.
 
 IIPMooViewer
 ============
