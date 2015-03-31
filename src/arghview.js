@@ -89,7 +89,7 @@ ArghView.prototype.vertexShaderSource =
 "	     vTextureCoord = aTextureCoord; " +
 "   }";
 
-ArghView.prototype.fragmentShaderSource = 
+ArghView.prototype.fragmentShaderSource2D = 
 "    precision lowp float; " +
 " " +
 "    varying lowp vec2 vTextureCoord; " +
@@ -99,6 +99,37 @@ ArghView.prototype.fragmentShaderSource =
 "    void main(void) { " +
 "        gl_FragColor = texture2D(uTileTexture,  " +
 "           vec2(vTextureCoord.s, vTextureCoord.t)); " +
+"    } ";
+
+ArghView.prototype.fragmentShaderSourceRTI = 
+"    precision lowp float; " +
+" " +
+"    varying lowp vec2 vTextureCoord; " +
+" " +
+"    uniform sampler2D uTileTexture; " +
+"    uniform sampler2D uTileTextureH; " +
+"    uniform sampler2D uTileTextureL; " +
+" " +
+"    uniform vec3 uHOffset; " +
+"    uniform vec3 uHScale; " +
+"    uniform vec3 uHWeight; " +
+"    uniform vec3 uLOffset; " +
+"    uniform vec3 uLScale; " +
+"    uniform vec3 uLWeight; " +
+" " +
+"    void main(void) { " +
+"        vec2 pos = vec2(vTextureCoord.s, vTextureCoord.t); " +
+" " +
+"        vec3 colour = texture2D(uTileTexture, pos).xyz; " +
+"        vec3 coeffH = texture2D(uTileTextureH, pos).xyz; " +
+"        vec3 coeffL = texture2D(uTileTextureL, pos).xyz; " +
+" " +
+"        vec3 l3 = (coeffH - uHOffset / 255.0) * uHScale * uHWeight + " +
+"                (coeffL - uLOffset / 255.0) * uLScale * uLWeight; " +
+"        float l = l3.x + l3.y + l3.z; " +
+" " +
+"        colour *= l; " +
+"        gl_FragColor = vec4(colour, 1.0); " +
 "    } ";
 
 /* points is a 2D array of like [[x1, y1], [x2, y2], ..], make a 
@@ -161,7 +192,8 @@ ArghView.prototype.initGL = function () {
     }
 
     var fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-    gl.shaderSource(fragmentShader, this.fragmentShaderSource);
+    //gl.shaderSource(fragmentShader, this.fragmentShaderSource2D);
+    gl.shaderSource(fragmentShader, this.fragmentShaderSourceRTI);
     gl.compileShader(fragmentShader);
 
     if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
@@ -189,6 +221,17 @@ ArghView.prototype.initGL = function () {
     program.mvMatrixUniform = gl.getUniformLocation(program, "uMVMatrix");
     program.tileSizeUniform = gl.getUniformLocation(program, "uTileSize");
     program.tileTextureUniform = gl.getUniformLocation(program, "uTileTexture");
+
+    program.tileTextureHUniform = 
+        gl.getUniformLocation(program, "uTileTextureH");
+    program.tileTextureLUniform = 
+        gl.getUniformLocation(program, "uTileTextureL");
+    program.HOffsetUniform = gl.getUniformLocation(program, "uHOffset");
+    program.HScaleUniform = gl.getUniformLocation(program, "uHScale");
+    program.HWeightUniform = gl.getUniformLocation(program, "uHWeight");
+    program.LOffsetUniform = gl.getUniformLocation(program, "uLOffset");
+    program.LScaleUniform = gl.getUniformLocation(program, "uLScale");
+    program.LWeightUniform = gl.getUniformLocation(program, "uLWeight");
 
     gl.useProgram(program);
 
@@ -319,11 +362,22 @@ ArghView.prototype.setPosition = function (viewportLeft, viewportTop) {
     this.viewportTop = viewportTop;
 };
 
-/* Public: get the position of the viewport within the larger image.
+/* Public ... light position in 0 - 1, compute the lighting function.
  */
-ArghView.prototype.getPosition = function () {
-    return {x: this.viewportLeft, y: this.viewportTop};
-};
+ArghView.prototype.setLightPosition = function (x, y) {
+    this.HWeight = [x * x, y * y, x * y];
+    this.LWeight = [x, y, 1.0];
+}
+
+/* Public ... set the scale and offset for the H and L images.
+ */
+ArghView.prototype.setScaleOffset = 
+    function (hScale, hOffset, vScale, vOffset) {
+    this.hScale = hScale;
+    this.hOffset = hOffset;
+    this.lScale = lScale;
+    this.lOffset = lOffset;
+}
 
 // draw a tile at a certain tileSize ... tiles can be drawn very large if we are
 // using a low-res tile as a placeholder while a high-res tile is being loaded
