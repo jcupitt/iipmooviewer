@@ -37,6 +37,8 @@ Protocols.DeepZoomRTI = new Class({
         // look for the optional RTI tag and get the scale/offset settings
         var rti = xmlDoc.getElementsByTagName("RTI")[0];
         if (rti) {
+            this.isRTI = true;
+
             function parseNumbers(str) {
                 var numbers = [];
                 var strings = str.split(" ");

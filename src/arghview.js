@@ -4,10 +4,8 @@
  * TODO:
  *
  * - support rotate
- * - need methods to translate between clientX/Y coordinates and image cods
+ * - need methods to translate between clientX/Y coordinates and image cods?
  * - could support morph animations?
- * - need to support richer fragment shaders, eg. RTI
- * - put the shader source in this file
  */
 
 'use strict';
@@ -127,8 +125,8 @@ ArghView.prototype.fragmentShaderSourceRTI =
 "        vec3 coeffH = texture2D(uTileTextureH, pos).xyz; " +
 "        vec3 coeffL = texture2D(uTileTextureL, pos).xyz; " +
 " " +
-"        vec3 l3 = (coeffH - uHOffset / 255.0) * uHScale * uHWeight + " +
-"                (coeffL - uLOffset / 255.0) * uLScale * uLWeight; " +
+"        vec3 l3 = (coeffH - uHOffset) * uHScale * uHWeight + " +
+"                (coeffL - uLOffset) * uLScale * uLWeight; " +
 "        float l = l3.x + l3.y + l3.z; " +
 " " +
 "        colour *= l; " +
@@ -232,7 +230,7 @@ ArghView.prototype.initGL = function () {
 
     this.program2D = linkProgram(vertexShader, fragmentShader2D);
 
-    this.programRTI = linkProgram(vertexShader, fragmentShader2D);
+    this.programRTI = linkProgram(vertexShader, fragmentShaderRTI);
 
     var program = this.programRTI;
     program.tileTextureHUniform = 
@@ -250,12 +248,12 @@ ArghView.prototype.initGL = function () {
     this.mvMatrix = mat4.create();
     this.mvMatrixStack = [];
 
-    this.hOffset = mat3.create()
-    this.hScale = mat3.create()
-    this.hWeight = mat3.create()
-    this.lOffset = mat3.create()
-    this.lScale = mat3.create()
-    this.lWeight = mat3.create()
+    this.hOffset = vec3.create()
+    this.hScale = vec3.create()
+    this.hWeight = vec3.create()
+    this.lOffset = vec3.create()
+    this.lScale = vec3.create()
+    this.lWeight = vec3.create()
 
     // we draw tiles as 1x1 squares, scaled, translated and textured
     this.vertexBuffer = this.bufferCreate([[1, 1], [1, 0], [0, 1], [0, 0]]);
@@ -386,9 +384,11 @@ ArghView.prototype.setPosition = function (viewportLeft, viewportTop) {
     this.viewportTop = viewportTop;
 };
 
-/* Public ... light position in 0 - 1, compute the lighting function.
+/* Public ... light position in [-1, 1] ... compute the lighting function.
  */
 ArghView.prototype.setLightPosition = function (x, y) {
+    console.log("ArghView.setLightPosition: " + x + ", " + y);
+
     this.hWeight[0] = x * x;
     this.hWeight[1] = y * y;
     this.hWeight[2] = x * y;
@@ -400,12 +400,12 @@ ArghView.prototype.setLightPosition = function (x, y) {
 /* Public ... set the scale and offset for the H and L images.
  */
 ArghView.prototype.setScaleOffset = 
-    function (hScale, hOffset, vScale, vOffset) {
+    function (hScale, hOffset, lScale, lOffset) {
     for (var i = 0; i < 3; i++) {
         this.hScale[i] = hScale[i];
-        this.hOffset[i] = hOffset[i];
+        this.hOffset[i] = hOffset[i] / 255.0;
         this.lScale[i] = lScale[i];
-        this.lOffset[i] = lOffset[i];
+        this.lOffset[i] = lOffset[i] / 255.0;
     }
 }
 
@@ -430,12 +430,12 @@ ArghView.prototype.tileDraw = function (tile, tileSize) {
     this.setMatrixUniforms();
 
     if (this.RTI) {
-        gl.uniformMatrix3fv(this.program.hScaleUniform, false, this.hScale);
-        gl.uniformMatrix3fv(this.program.hOffsetUniform, false, this.hOffset);
-        gl.uniformMatrix3fv(this.program.hWeightUniform, false, this.hWeight);
-        gl.uniformMatrix3fv(this.program.lScaleUniform, false, this.lScale);
-        gl.uniformMatrix3fv(this.program.lOffsetUniform, false, this.lOffset);
-        gl.uniformMatrix3fv(this.program.lWeightUniform, false, this.lWeight);
+        gl.uniform3fv(this.program.hScaleUniform, this.hScale);
+        gl.uniform3fv(this.program.hOffsetUniform, this.hOffset);
+        gl.uniform3fv(this.program.hWeightUniform, this.hWeight);
+        gl.uniform3fv(this.program.lScaleUniform, this.lScale);
+        gl.uniform3fv(this.program.lOffsetUniform, this.lOffset);
+        gl.uniform3fv(this.program.lWeightUniform, this.lWeight);
     }
 
     gl.activeTexture(gl.TEXTURE0);
@@ -445,11 +445,11 @@ ArghView.prototype.tileDraw = function (tile, tileSize) {
     if (this.RTI) {
         gl.activeTexture(gl.TEXTURE1);
         gl.bindTexture(gl.TEXTURE_2D, tile.tileH);
-        gl.uniform1i(this.program.tileTextureUniformH, 0);
+        gl.uniform1i(this.program.tileTextureUniformL, 0);
 
         gl.activeTexture(gl.TEXTURE2);
         gl.bindTexture(gl.TEXTURE_2D, tile.tileL);
-        gl.uniform1i(this.program.tileTextureUniformL, 0);
+        gl.uniform1i(this.program.tileTextureUniformH, 0);
     }
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.textureCoordsBuffer);
@@ -574,6 +574,7 @@ ArghView.prototype.loadTexture = function (url) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
+    tex.readyToDraw = false;
     var tileSize = this.tileSize;
     var img = new Image();
     img.src = url;
@@ -591,6 +592,8 @@ ArghView.prototype.loadTexture = function (url) {
         gl.bindTexture(gl.TEXTURE_2D, tex);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, 
                 gl.UNSIGNED_BYTE, img);
+
+        tex.readyToDraw = true;
 
         if (tex.onload) {
             tex.onload();
@@ -611,20 +614,35 @@ ArghView.prototype.tileFetch = function (z, x, y) {
             tileTop >= 0 &&
             tileLeft < this.layerProperties[z].tilesAcross &&
             tileTop < this.layerProperties[z].tilesDown) {
-            var url = this.tileURL(z, tileLeft, tileTop); 
+            var url = this.tileURL(z, tileLeft, tileTop, 0); 
             var newTile = this.loadTexture(url); 
             newTile.view = this;
             newTile.tileLeft = tileLeft;
             newTile.tileTop = tileTop;
             newTile.tileLayer = z;
-            newTile.readyToDraw = false;
+            newTile.isReady = function () {
+                var ready = this.readyToDraw;
+                if (this.view.RTI) {
+                    ready &= this.tileH.readyToDraw &&
+                        this.tileL.readyToDraw;
+                }
+
+                return ready;
+            }
+
+            if (this.RTI) {
+                var url = this.tileURL(z, tileLeft, tileTop, 1); 
+                newTile.tileH = this.loadTexture(url); 
+                var url = this.tileURL(z, tileLeft, tileTop, 2); 
+                newTile.tileL = this.loadTexture(url); 
+            }
+
             this.tileAdd(newTile);
 
             newTile.onload = function () {
                 this.log("ArghView.tileFetch: arrival of " + 
                         newTile.tileLayer + ", " + newTile.tileLeft + 
                         ", " + newTile.tileTop, {level: 1});
-                newTile.readyToDraw = true;
                 newTile.view.draw();
             }.bind(this);
         }
@@ -655,11 +673,11 @@ ArghView.prototype.draw = function () {
     }
 
     if (this.RTI) {
-        this.program = this.program2D;
+        this.program = this.programRTI;
         gl.useProgram(this.program);
     }
     else {
-        this.program = this.programRTI;
+        this.program = this.program2D;
         gl.useProgram(this.program);
     }
 
@@ -692,7 +710,7 @@ ArghView.prototype.draw = function () {
                 var tile = this.tileGet(z, tileLeft, tileTop);
 
                 if (tile &&
-                    tile.readyToDraw) { 
+                    tile.isReady()) { 
                     this.tileDraw(tile, tileSize);
                 }
             }
