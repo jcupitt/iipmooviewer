@@ -1,13 +1,10 @@
-/* DeepZoom-RTI Protocol Handler
- *
- * Like deepzoom, but with a little extra metadata plus three .jpg for
- * every tile.
+/* DeepZoom Protocol Handler with RTI extension
  */
 
 Protocols.DeepZoomRTI = new Class({
-    /* Return metadata URL.
+    /* Return metadata URL
      */
-    getMetaDataURL: function (server,image) {
+    getMetaDataURL: function (server, image) {
         return server + image;
     },
 
@@ -16,35 +13,65 @@ Protocols.DeepZoomRTI = new Class({
     getTileURL: function (t) {
         // Strip off the .dzi or .xml suffix from the image name
         var prefix = t.image.substr(0, t.image.lastIndexOf("."));
+        var base = t.server + prefix + '_files/';
 
-        return t.server + prefix + '_files/' + (t.resolution + 1) + '/' + 
-            t.x + '_' + t.y + this.suffix;
+        return base + (t.resolution + 1) + '/' + t.x + '_' + t.y + this.suffix;
     },
 
     /* Parse a Deepzoom protocol metadata request
-    */
+     */
     parseMetaData: function (response) {
         var parser = new DOMParser();
         var xmlDoc = parser.parseFromString(response, "text/xml");
 
-                    // document::image::properties::property
-                    //             var props =
-                    //             this.responseXML.documentElement.children[0].children;
-                    //
+        var image = xmlDoc.getElementsByTagName("Image")[0];
 
+        var tileSize = parseInt(image.getAttribute("TileSize"));
+        this.tileSize = tileSize;
+        this.suffix = "." + image.getAttribute("Format");
 
+        var size = xmlDoc.getElementsByTagName("Size")[0];
+        var width = parseInt(size.getAttribute("Width"));
+        var height = parseInt(size.getAttribute("Height"));
 
-        this.suffix = "." + (/Format="(\w+)/.exec(response)[1]); 
-        var ts = parseInt(/TileSize="(\d+)/.exec(response)[1]);
-        var w = parseInt(/Width="(\d+)/.exec(response)[1]);
-        var h = parseInt(/Height="(\d+)/.exec(response)[1]);
+        // look for the optional RTI tag and get the scale/offset settings
+        var rti = xmlDoc.getElementsByTagName("RTI")[0];
+        if (rti) {
+            function parseNumbers(str) {
+                var numbers = [];
+                var strings = str.split(" ");
+                for (var i = 0; i < strings.length; i++) {
+                    var f = parseFloat(strings[i]);
+
+                    if (!isNaN(f)) {
+                        numbers.push(parseFloat(strings[i]));
+                    }
+                }
+
+                return numbers;
+            }
+
+            var scale = rti.getElementsByTagName("scale")[0];
+            this.scale = parseNumbers(scale.textContent);
+            var offset = rti.getElementsByTagName("offset")[0];
+            this.offset = parseNumbers(offset.textContent);
+
+            if (this.scale.length != this.offset.length) {
+                throw "Scale and offset arrays not equal in length";
+            }
+            if (this.scale.length != 6) {
+                throw "LRGB RTI images need six offset and scale coefficients";
+            }
+        }
 
         // Number of resolutions is the ceiling of Log2(max)
-        var max = (w ? h) ? w : h;
+        var max = Math.max(width, height);
+        var num_resolutions = Math.ceil(Math.log(max) / Math.LN2);
+
         var result = {
-            max_size: {w: w, h: h},
-            tileSize: {w: ts, h: ts},
-            num_resolutions: Math.ceil(Math.log(max) / Math.LN2)
+            max_size: { w: width, h: height },
+            tileSize: { w: tileSize, h: tileSize },
+            num_resolutions: num_resolutions
         };
 
         return result;
@@ -57,14 +84,15 @@ Protocols.DeepZoomRTI = new Class({
     },
 
     /* Return thumbnail URL
-     */
+    */
     getThumbnailURL: function (server, image, width) {
         // Strip off the .dzi or .xml suffix from the image name
         var prefix = image.substr(0, image.lastIndexOf("."));
 
-        // level 0 is 1x1 pixel, so level 7 should be within 256x256, if 
-        // that's the tile size
-        return server + prefix + '_files/7/0_0' + this.suffix;
+        // level 0 is 1x1 pixel ... find the level which just fits within a 
+        // tile
+        var thumbLevel = Math.log(this.tileSize) / Math.LN2 - 1;
+ 
+        return server + prefix + '_files/' + thumbLevel + '/0_0' + this.suffix;
     }
-
 });

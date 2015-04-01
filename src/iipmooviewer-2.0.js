@@ -174,6 +174,9 @@ var IIPMooViewer = new Class({
       case 'deepzoom':
 	this.protocol = new Protocols.DeepZoom();
 	break;
+      case 'deepzoom-rti':
+	this.protocol = new Protocols.DeepZoomRTI();
+	break;
       case 'djatoka':
         this.protocol = new Protocols.Djatoka();
 	break;

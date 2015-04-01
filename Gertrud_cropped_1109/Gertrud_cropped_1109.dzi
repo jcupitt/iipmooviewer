@@ -1,11 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<Image xmlns="http://schemas.microsoft.com/deepzoom/2008"
-  Format="jpeg"
-  Overlap="1"
-  TileSize="256"
-  >
-  <Size 
-    Height="2610"
-    Width="1109"
-  />
-</Image>
+<?xml version='1.0' encoding='utf-8'?>
+<Image xmlns="http://schemas.microsoft.com/deepzoom/2008" Format="jpeg" Overlap="1" TileSize="256">
+  <Size Height="2610" Width="1109" />
+<RTI format="lrgb"><scale>4.0 4.0 4.0 2.0 4.0 2.0 </scale><offset>107.0 135.0 67.0 91.0 76.0 3.0 </offset></RTI></Image>
