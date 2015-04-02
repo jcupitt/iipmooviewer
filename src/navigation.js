@@ -36,6 +36,7 @@ var Navigation = new Class({
     this.prefix = options.prefix;
     this.standalone = (options.navigation&&options.navigation.id&&document.id(options.navigation.id)) ? true : false;
     this.options.navButtons = (options.navigation&&options.navigation.buttons) || ['reset','zoomIn','zoomOut'];
+    this.options.toolButtons = (options.navigation&&options.navigation.tools) || [];
   },
 
 
@@ -148,20 +149,84 @@ var Navigation = new Class({
 	  }
 	}).inject(navbuttons);
       });
-
       navbuttons.inject(this.navcontainer);
 
       // Need to set this after injection
       navbuttons.set('slide', {duration: 300, transition: Fx.Transitions.Quad.easeInOut, mode:'vertical'});
 
+        var _this = this;
+
+
       // Add events to our buttons
-      var _this = this;
       if(this.options.navButtons.contains('reset')) navbuttons.getElement('img.reset').addEvent( 'click', function(){ _this.fireEvent('reload'); });
       if(this.options.navButtons.contains('zoomIn')) navbuttons.getElement('img.zoomIn').addEvent( 'click', function(){ _this.fireEvent('zoomIn'); });
       if(this.options.navButtons.contains('zoomOut')) navbuttons.getElement('img.zoomOut').addEvent( 'click', function(){ _this.fireEvent('zoomOut'); }); 
       if(this.options.navButtons.contains('rotateLeft')) navbuttons.getElement('img.rotateLeft').addEvent( 'click', function(){ _this.fireEvent('rotate',-90); });
       if(this.options.navButtons.contains('rotateRight')) navbuttons.getElement('img.rotateRight').addEvent( 'click', function(){ _this.fireEvent('rotate',90); });
+    }
 
+    // add our set of tool buttons ... only one can be active, the name of
+    // the active tool (if any) is set on navigation.currentTool
+    if (this.options.toolButtons) {
+        var toolbuttons = new Element('div', {
+            class: 'toolbuttons'
+        });
+
+        this.currentTool = null;
+        toolbuttons.currentTool = null;
+
+        this.options.toolButtons.each(function (name) {
+            var element = new Element('img', {
+                class: name,
+                events: {
+                    error: function () {
+                        // Prevent infinite reloading
+                        this.removeEvents('error'); 
+                        // PNG fallback
+                        this.src = this.src.replace('.svg','.png'); 
+                    },
+                    click: function() {
+                        this.setTool(!this.on); 
+                    }
+                }
+	        });
+
+            element.name = name;
+            element.toolbar = toolbuttons;
+            element.navigation = _this;
+            element.setTool = function (on) {
+                this.on = on;
+                this.src = this.navigation.prefix + this.name + 
+                    (this.on ? 'On' : 'Off') + 
+                    (Browser.buggy?'.png':'.svg');
+
+                if (on) {
+                    if (this.toolbar.currentTool) {
+                        this.toolbar.currentTool.setTool(false);
+                    }
+
+                    this.toolbar.currentTool = this;
+                    this.navigation.currentTool = this.name;
+                }
+                else if (this.toolbar.currentTool === this) {
+                    this.toolbar.currentTool = null;
+                    this.navigation.currentTool = null;
+                }
+            };
+
+            element.setTool(false);
+
+            element.inject(toolbuttons);
+	    });
+
+        toolbuttons.inject(navbuttons);
+
+        // Have to set this after injection
+        toolbuttons.set('slide', {
+            duration: 300, 
+            transition: Fx.Transitions.Quad.easeInOut, 
+            mode: 'vertical'
+        });
     }
 
     // Add a progress bar only if we have the navigation window visible

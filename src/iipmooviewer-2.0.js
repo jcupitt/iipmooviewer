@@ -490,6 +490,23 @@ var IIPMooViewer = new Class({
 
   },
 
+  
+    /* A drag in the canvas. The action depends on the selected tool.
+     */
+    dragEvent: function (event) {
+        if (this.navigation.currentTool) {
+            var x = event.clientX / this.container.clientWidth;
+            var y = event.clientY / this.container.clientHeight;
+
+            if (this.protocol.isRTI) {
+                this.arghView.setLightPosition(x * 2 - 1, y * 2 - 1);
+                this.arghView.draw();
+            }
+        }
+        else {
+            this.scroll();
+        }
+    },
 
   /* Scroll from a drag event on the tile canvas
    */
@@ -989,18 +1006,6 @@ var IIPMooViewer = new Class({
     }
 
 
-        this.canvas.addEventListener('mouseup', function (event) {
-            if (event.button == 0) {
-                var x = (event.layerX - this.view.x) / this.view.w;
-                var y = (event.layerY - this.view.y) / this.view.h;
-
-                if (this.protocol.isRTI) {
-                    this.arghView.setLightPosition(x * 2 - 1, y * 2 - 1);
-                    this.arghView.draw();
-                }
-            }
-        }.bind(this));
-
     // Add an external callback if we have been given one
     if( this.click ){
 
@@ -1373,6 +1378,8 @@ var IIPMooViewer = new Class({
       this.centerTo( this.viewport.x, this.viewport.y );
     }
     else this.recenter();
+
+    this.arghView.setLightPosition(0, 0);
 
     this.canvas.setStyles({
       width: this.wid,

@@ -86,6 +86,7 @@
     var protocol = 'deepzoom-rti';
 
     var buttons = ['reset','zoomIn','zoomOut', 'rotateLeft', 'rotateRight'];
+    var tools = ['light','tape'];
 
     // Copyright or information message
     var credit = '&copy; copyright or information message';
@@ -105,7 +106,7 @@
 	annotations : annotations,
 	protocol: protocol,
 	scale: 100,
-	navigation: {buttons: buttons},
+	navigation: {buttons: buttons, tools: tools},
 	credit: credit
     });
 
