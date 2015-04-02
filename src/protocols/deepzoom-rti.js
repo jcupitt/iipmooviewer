@@ -14,8 +14,10 @@ Protocols.DeepZoomRTI = new Class({
         // Strip off the .dzi or .xml suffix from the image name
         var prefix = t.image.substr(0, t.image.lastIndexOf("."));
         var base = t.server + prefix + '_files/';
+        var type = t.n > 0 ? '_' + t.n : "";
+        var tileName = t.x + '_' + t.y + type + this.suffix;
 
-        return base + (t.resolution + 1) + '/' + t.x + '_' + t.y + this.suffix;
+        return base + (t.resolution + 1) + '/' + tileName;
     },
 
     /* Parse a Deepzoom protocol metadata request

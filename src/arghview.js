@@ -444,11 +444,11 @@ ArghView.prototype.tileDraw = function (tile, tileSize) {
 
     if (this.RTI) {
         gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_2D, tile.tileH);
+        gl.bindTexture(gl.TEXTURE_2D, tile.tileL);
         gl.uniform1i(this.program.tileTextureUniformL, 0);
 
         gl.activeTexture(gl.TEXTURE2);
-        gl.bindTexture(gl.TEXTURE_2D, tile.tileL);
+        gl.bindTexture(gl.TEXTURE_2D, tile.tileH);
         gl.uniform1i(this.program.tileTextureUniformH, 0);
     }
 
@@ -575,6 +575,7 @@ ArghView.prototype.loadTexture = function (url) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
     tex.readyToDraw = false;
+    tex.url = url;
     var tileSize = this.tileSize;
     var img = new Image();
     img.src = url;
