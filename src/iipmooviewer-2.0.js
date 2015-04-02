@@ -174,6 +174,9 @@ var IIPMooViewer = new Class({
       case 'deepzoom':
 	this.protocol = new Protocols.DeepZoom();
 	break;
+      case 'deepzoom-rti':
+	this.protocol = new Protocols.DeepZoomRTI();
+	break;
       case 'djatoka':
         this.protocol = new Protocols.Djatoka();
 	break;
@@ -986,6 +989,18 @@ var IIPMooViewer = new Class({
     }
 
 
+        this.canvas.addEventListener('mouseup', function (event) {
+            if (event.button == 0) {
+                var x = (event.layerX - this.view.x) / this.view.w;
+                var y = (event.layerY - this.view.y) / this.view.h;
+
+                if (this.protocol.isRTI) {
+                    this.arghView.setLightPosition(x * 2 - 1, y * 2 - 1);
+                    this.arghView.draw();
+                }
+            }
+        }.bind(this));
+
     // Add an external callback if we have been given one
     if( this.click ){
 
@@ -1134,7 +1149,7 @@ var IIPMooViewer = new Class({
 
     // Attach the viewer to the canvas
     this.arghView = new ArghView(this.arghViewCanvas);
-    this.arghView.setSource(function (z, x, y) {
+    this.arghView.setSource(function (z, x, y, n) {
             var xtiles = Math.ceil( this.wid / this.tileSize.h );
 
             var k = x + (y * xtiles);
@@ -1148,6 +1163,8 @@ var IIPMooViewer = new Class({
                 gamma: (this.images[0].gam || null),
                 shade: (this.images[0].shade || null),
                 tileindex: k,
+                // n is the image number (0, 1, 2) for RTI images
+                n: n,
                 x: x,
                 y: y
             });
@@ -1155,6 +1172,16 @@ var IIPMooViewer = new Class({
 	    this.max_size, 
 	    this.tileSize, 
 	    this.num_resolutions);
+
+    // enable RTI rendering, if necessary
+    if (this.protocol.isRTI) {
+        this.arghView.setRTI(true);
+        this.arghView.setScaleOffset(this.protocol.scale.slice(0, 3),
+                                      this.protocol.offset.slice(0, 3),
+                                      this.protocol.scale.slice(3, 6),
+                                      this.protocol.offset.slice(3, 6));
+        this.arghView.setLightPosition(0, 0);
+    }
 
     // Load our images
     this.requestImages();
