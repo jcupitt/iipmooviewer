@@ -387,8 +387,6 @@ ArghView.prototype.setPosition = function (viewportLeft, viewportTop) {
 /* Public ... light position in [-1, 1] ... compute the lighting function.
  */
 ArghView.prototype.setLightPosition = function (x, y) {
-    console.log("ArghView.setLightPosition: " + x + ", " + y);
-
     this.hWeight[0] = x * x;
     this.hWeight[1] = y * y;
     this.hWeight[2] = x * y;

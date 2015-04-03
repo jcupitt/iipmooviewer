@@ -34,6 +34,7 @@ var Navigation = new Class({
     this.options.navWinSize = options.navWinSize || 0.2;
     this.options.showCoords = (options.showCoords == true) ? true : false;
     this.prefix = options.prefix;
+    this.onToolChange = options.onToolChange;
     this.standalone = (options.navigation&&options.navigation.id&&document.id(options.navigation.id)) ? true : false;
     this.options.navButtons = (options.navigation&&options.navigation.buttons) || ['reset','zoomIn','zoomOut'];
     this.options.toolButtons = (options.navigation&&options.navigation.tools) || [];
@@ -206,11 +207,15 @@ var Navigation = new Class({
                     }
 
                     this.toolbar.currentTool = this;
-                    this.navigation.currentTool = this.name;
+                    if (this.navigation.onToolChange) {
+                        this.navigation.onToolChange(this.name);
+                    }
                 }
                 else if (this.toolbar.currentTool === this) {
                     this.toolbar.currentTool = null;
-                    this.navigation.currentTool = null;
+                    if (this.navigation.onToolChange) {
+                        this.navigation.onToolChange(null);
+                    }
                 }
             };
 
