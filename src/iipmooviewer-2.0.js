@@ -150,18 +150,35 @@ var IIPMooViewer = new Class({
     this.prefix = options.prefix || 'images/';
 
 
-    // Navigation window options
-    this.navigation = null;
-    this.navOptions = options.navigation || null;
-    if( (typeof(Navigation)==="function") ){
-      this.navigation = new Navigation({ showNavWindow:options.showNavWindow,
-					 showNavButtons: options.showNavButtons,
-					 navWinSize: options.navWinSize,
-				         showCoords: options.showCoords,
-					 prefix: this.prefix,
-					 navigation: options.navigation
-				       });
-    }
+        // Navigation window options
+        this.navigation = null;
+        this.navOptions = options.navigation || null;
+        if (typeof(Navigation) === "function") {
+            this.navigation = new Navigation({ 
+                showNavWindow: options.showNavWindow,
+                showNavButtons: options.showNavButtons,
+                navWinSize: options.navWinSize,
+                showCoords: options.showCoords,
+                prefix: this.prefix,
+                navigation: options.navigation,
+                onToolChange: function (tool) {
+                    this.currentTool = tool;
+
+                    // disable canvas drag in tape and light mode
+                    if (!tool) {
+                        this.touch.attach();
+                    }
+                    else {
+                        this.touch.detach();
+                    }
+
+                    if (tool === "light") {
+                    }
+                    else if (tool === "tape") {
+                    }
+                }.bind(this)
+            });
+        }
 
     this.winResize = (typeof(options.winResize)!='undefined' && options.winResize==false)? false : true;
 
@@ -489,7 +506,6 @@ var IIPMooViewer = new Class({
     if(IIPMooViewer.sync) IIPMooViewer.windows(this).invoke( 'moveTo', xmove, ymove );
 
   },
-
 
   /* Scroll from a drag event on the tile canvas
    */
@@ -936,41 +952,73 @@ var IIPMooViewer = new Class({
 
 
     // Add touch or drag events to our canvas
-    if( 'ontouchstart' in window || navigator.msMaxTouchPoints ){
-      // Add our touch events
-      this.addTouchEvents();
+    if ('ontouchstart' in window || navigator.msMaxTouchPoints) {
+        // Add our touch events
+        this.addTouchEvents();
     }
-    else{
-      // Create our main view drag object for our canvas.
-      // Add synchronization via the Drag complete hook as well as coordinate updating
-      var coordsBind = this.updateCoords.bind(this);
-      this.touch = new Drag( this.canvas, {
-	onStart: function(){
-	  _this.canvas.addClass('drag');
-	  _this.canvas.removeEvent('mousemove:throttle(75)',coordsBind);
-        },
-        onDrag: function() {
-	  _this.scroll();
-        },
-        onComplete: function(){
-	  _this.scroll();
-          if( IIPMooViewer.sync ) IIPMooViewer.windows(this).invoke( 'moveTo', xmove, ymove );
-	  _this.canvas.removeClass('drag');
-	  _this.canvas.addEvent('mousemove:throttle(75)',coordsBind);
-	}
-      });
+    else {
+        // Create our main view drag object for our canvas.
+        // Add synchronization via the Drag complete hook as well as 
+        // coordinate updating
+        this.touch = new Drag(this.canvas, {
+            onStart: function () {
+                _this.canvas.addClass('drag');
+            },
+            onDrag: function () {
+                _this.scroll();
+            },
+            onComplete: function () {
+                if (IIPMooViewer.sync) {
+                    IIPMooViewer.windows(this).invoke('moveTo', xmove, ymove);
+                }
+                _this.canvas.removeClass('drag');
+            }
+        });
     }
 
-
-    // Inject our canvas into the container, but events need to be added after injection
-    this.canvas.inject( this.container );
+    // Inject our canvas into the container, but events need to be added 
+    // after injection
+    this.canvas.inject(this.container);
     this.canvas.addEvents({
-      'mousewheel:throttle(75)': this.zoom.bind(this),
-      'dblclick': this.zoom.bind(this),
-      'mousedown': function(e){ var event = new DOMEvent(e); event.stop(); },
-      'mousemove:throttle(75)': coordsBind, // Throttle to avoid unnecessary updating
-      'mouseenter': function(){ if( _this.navigation && _this.navigation.coords ) _this.navigation.coords.fade(0.65); },
-      'mouseleave': function(){ if( _this.navigation && _this.navigation.coords ) _this.navigation.coords.fade('out'); }
+        'mousewheel': this.zoom.bind(this),
+        'dblclick': this.zoom.bind(this),
+        'mousedown': function (e) { 
+            var event = new DOMEvent(e); 
+            event.stop(); 
+
+            this.toolStartClientX = e.event.clientX;
+            this.toolStartClientY = e.event.clientY;
+            this.toolOn = this.currentTool;
+
+            if (this.currentTool) {
+                this.toolStart(this.currentTool, event);
+            }
+        }.bind(this),
+        'mousemove': function (e) {
+            this.updateCoords(e);
+
+            if (this.currentTool &&
+                this.toolOn === this.currentTool) {
+                this.toolMove(this.currentTool, e);
+            }
+        }.bind(this), 
+        'mouseup': function (e) { 
+            this.toolOn = null;
+
+            if (this.currentTool) {
+                this.toolStop(this.currentTool, e);
+            }
+        }.bind(this),
+        'mouseenter': function () { 
+            if (_this.navigation && _this.navigation.coords) {
+                _this.navigation.coords.fade(0.65); 
+            }
+        },
+        'mouseleave': function () { 
+            if (_this.navigation && _this.navigation.coords) {
+                _this.navigation.coords.fade('out'); 
+            }
+        }
     });
 
 
@@ -988,18 +1036,6 @@ var IIPMooViewer = new Class({
 					 } )
     }
 
-
-        this.canvas.addEventListener('mouseup', function (event) {
-            if (event.button == 0) {
-                var x = (event.layerX - this.view.x) / this.view.w;
-                var y = (event.layerY - this.view.y) / this.view.h;
-
-                if (this.protocol.isRTI) {
-                    this.arghView.setLightPosition(x * 2 - 1, y * 2 - 1);
-                    this.arghView.draw();
-                }
-            }
-        }.bind(this));
 
     // Add an external callback if we have been given one
     if( this.click ){
@@ -1374,6 +1410,8 @@ var IIPMooViewer = new Class({
     }
     else this.recenter();
 
+    this.arghView.setLightPosition(0, 0);
+
     this.canvas.setStyles({
       width: this.wid,
       height: this.hei
@@ -1445,7 +1483,29 @@ var IIPMooViewer = new Class({
     if( this.navigation ) {
       this.navigation.toggleWindow();
     }
-  }
+  },
+
+    /* Tool handling ... start move and stop handlers when a tool is selected.
+     * @tool can be eg. 'light' or 'tape'.
+     */
+
+    toolStart: function (tool, e) {
+    },
+
+    toolMove: function (tool, e) {
+        if (tool === 'light') {
+            var x = e.event.clientX / this.container.clientWidth;
+            var y = e.event.clientY / this.container.clientHeight;
+
+            if (this.protocol.isRTI) {
+                this.arghView.setLightPosition(x * 2 - 1, y * 2 - 1);
+                this.arghView.draw();
+            }
+        }
+    },
+
+    toolStop: function (tool, e) {
+    }
 
 });
 
