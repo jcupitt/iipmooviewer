@@ -68,7 +68,7 @@ ArghView.prototype.log = function (str, options) {
     var level = options.level || 2;
 
     // higher numbers mean more important messages  
-    var loggingLevel = 4;
+    var loggingLevel = 2;
 
     if (level >= loggingLevel) {
         console.log(str);
@@ -387,6 +387,7 @@ ArghView.prototype.setPosition = function (viewportLeft, viewportTop) {
 /* Public ... light position in [-1, 1] ... compute the lighting function.
  */
 ArghView.prototype.setLightPosition = function (x, y) {
+    this.log("setLightPosition: x = " + x + ", y = " + y);
     this.hWeight[0] = x * x;
     this.hWeight[1] = y * y;
     this.hWeight[2] = x * y;

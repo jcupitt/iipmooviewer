@@ -128,8 +128,8 @@ var IIPMooViewer = new Class({
     // Enable fullscreen mode? If false, then disable. Otherwise option can be "native" for HTML5
     // fullscreen API mode or "page" for standard web page fill page mode
     this.enableFullscreen = 'native';
-    if( typeof(options.enableFullcreen) != 'undefined' ){
-      if( options.enableFullcreen == false ) this.enableFullscreen = false;
+    if( typeof(options.enableFullscreen) != 'undefined' ){
+      if( options.enableFullscreen == false ) this.enableFullscreen = false;
       if( options.enableFullscreen == 'page' ) this.enableFullscreen = 'page';
     }
     this.fullscreen = null;
