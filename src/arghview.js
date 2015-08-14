@@ -388,11 +388,28 @@ ArghView.prototype.setPosition = function (viewportLeft, viewportTop) {
  */
 ArghView.prototype.setLightPosition = function (x, y) {
     this.log("setLightPosition: x = " + x + ", y = " + y);
-    this.hWeight[0] = x * x;
-    this.hWeight[1] = y * y;
-    this.hWeight[2] = x * y;
-    this.lWeight[0] = x;
-    this.lWeight[1] = y;
+
+    var lx = Math.min(1.0, Math.max(-1.0, x * 1.1));
+    var ly = Math.min(1.0, Math.max(-1.0, y * 1.1));
+
+    var norm = Math.sqrt(lx * lx + ly * ly);
+    if (norm > 1.0) {
+        norm = 1.0;
+    }
+
+    var alpha = Math.PI / 2;
+    if (lx != 0.0) {
+        alpha = Math.atan2(ly, lx);
+    }
+
+    var ix = norm * Math.cos(alpha);
+    var iy = norm * Math.sin(alpha);
+
+    this.hWeight[0] = ix * ix;
+    this.hWeight[1] = iy * iy;
+    this.hWeight[2] = ix * iy;
+    this.lWeight[0] = ix;
+    this.lWeight[1] = iy;
     this.lWeight[2] = 1.0;
 }
 
@@ -631,9 +648,9 @@ ArghView.prototype.tileFetch = function (z, x, y) {
             }
 
             if (this.RTI) {
-                var url = this.tileURL(z, tileLeft, tileTop, 1); 
-                newTile.tileH = this.loadTexture(url); 
                 var url = this.tileURL(z, tileLeft, tileTop, 2); 
+                newTile.tileH = this.loadTexture(url); 
+                var url = this.tileURL(z, tileLeft, tileTop, 1); 
                 newTile.tileL = this.loadTexture(url); 
             }
 
