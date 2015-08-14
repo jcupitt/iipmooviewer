@@ -392,14 +392,14 @@ ArghView.prototype.setLightPosition = function (x, y) {
     var lx = Math.min(1.0, Math.max(-1.0, x * 1.1));
     var ly = Math.min(1.0, Math.max(-1.0, y * 1.1));
 
-    var norm = Math.sqrt(lx * lx + ly * ly);
-    if (norm > 1.0) {
-        norm = 1.0;
-    }
+    var norm = Math.min(1.0, Math.sqrt(lx * lx + ly * ly));
 
-    var alpha = Math.PI / 2;
+    var alpha;
     if (lx != 0.0) {
         alpha = Math.atan2(ly, lx);
+    }
+    else {
+        alpha = Math.PI / 2;
     }
 
     var ix = norm * Math.cos(alpha);
@@ -460,12 +460,12 @@ ArghView.prototype.tileDraw = function (tile, tileSize) {
 
     if (this.RTI) {
         gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_2D, tile.tileL);
-        gl.uniform1i(this.program.tileTextureUniformL, 0);
+        gl.bindTexture(gl.TEXTURE_2D, tile.tileH);
+        gl.uniform1i(this.program.tileTextureLUniform, 0);
 
         gl.activeTexture(gl.TEXTURE2);
-        gl.bindTexture(gl.TEXTURE_2D, tile.tileH);
-        gl.uniform1i(this.program.tileTextureUniformH, 0);
+        gl.bindTexture(gl.TEXTURE_2D, tile.tileL);
+        gl.uniform1i(this.program.tileTextureHUniform, 0);
     }
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.textureCoordsBuffer);
@@ -648,9 +648,9 @@ ArghView.prototype.tileFetch = function (z, x, y) {
             }
 
             if (this.RTI) {
-                var url = this.tileURL(z, tileLeft, tileTop, 2); 
-                newTile.tileH = this.loadTexture(url); 
                 var url = this.tileURL(z, tileLeft, tileTop, 1); 
+                newTile.tileH = this.loadTexture(url); 
+                var url = this.tileURL(z, tileLeft, tileTop, 2); 
                 newTile.tileL = this.loadTexture(url); 
             }
 
