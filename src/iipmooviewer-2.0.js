@@ -58,7 +58,7 @@
 	         (b) draggable: a boolean, indicating whether the navigation box is draggable.
 	                 Defaults to true, however, if a navigation id is specified, defaults 
 	                 to false.
-	         (c) buttons: an array of the available buttons: reset, zoomIn, zoomOut, rotateLeft, rotateRight
+	         (c) buttons: an array of the available buttons: reset, zoomIn, zoomOut, rotateLeft, rotateRight, addAnnotation
 	                      Defaults to: ['reset','zoomIn','zoomOut'] 
 
    Note: Requires mootools version 1.4 or later <http://www.mootools.net>
@@ -1124,6 +1124,9 @@ var IIPMooViewer = new Class({
 	  if( IIPMooViewer.sync ) IIPMooViewer.windows(_this).invoke( 'reload' );
 	},
 	'scroll': this.scrollNavigation.bind(this),
+	'addAnnotation': function(){
+	  _this.newAnnotation();
+	},
 	'zoom': this.zoom.bind(this)
      });
     }
