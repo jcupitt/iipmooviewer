@@ -979,7 +979,7 @@ var IIPMooViewer = new Class({
     // Inject our canvas into the container, but events need to be added 
     // after injection
     this.canvas.inject(this.container);
-    this.canvas.addEvents({
+    this.container.addEvents({
         'mousewheel': this.zoom.bind(this),
         'dblclick': this.zoom.bind(this),
         'mousedown': function (e) { 
@@ -1494,6 +1494,9 @@ var IIPMooViewer = new Class({
 
     toolMove: function (tool, e) {
         if (tool === 'light') {
+            console.log('toolMove: e.event.clientX = ' + e.event.clientX);
+            console.log('toolMove: e.event.clientY = ' + e.event.clientY);
+
             var x = e.event.clientX / this.container.clientWidth;
             var y = e.event.clientY / this.container.clientHeight;
 
