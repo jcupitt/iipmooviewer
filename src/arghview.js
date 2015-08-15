@@ -68,7 +68,7 @@ ArghView.prototype.log = function (str, options) {
     var level = options.level || 2;
 
     // higher numbers mean more important messages  
-    var loggingLevel = 2;
+    var loggingLevel = 4;
 
     if (level >= loggingLevel) {
         console.log(str);
@@ -461,11 +461,11 @@ ArghView.prototype.tileDraw = function (tile, tileSize) {
     if (this.RTI) {
         gl.activeTexture(gl.TEXTURE1);
         gl.bindTexture(gl.TEXTURE_2D, tile.tileH);
-        gl.uniform1i(this.program.tileTextureLUniform, 0);
+        gl.uniform1i(this.program.tileTextureLUniform, 1);
 
         gl.activeTexture(gl.TEXTURE2);
         gl.bindTexture(gl.TEXTURE_2D, tile.tileL);
-        gl.uniform1i(this.program.tileTextureHUniform, 0);
+        gl.uniform1i(this.program.tileTextureHUniform, 2);
     }
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.textureCoordsBuffer);
@@ -648,9 +648,9 @@ ArghView.prototype.tileFetch = function (z, x, y) {
             }
 
             if (this.RTI) {
-                var url = this.tileURL(z, tileLeft, tileTop, 1); 
-                newTile.tileH = this.loadTexture(url); 
                 var url = this.tileURL(z, tileLeft, tileTop, 2); 
+                newTile.tileH = this.loadTexture(url); 
+                var url = this.tileURL(z, tileLeft, tileTop, 1); 
                 newTile.tileL = this.loadTexture(url); 
             }
 
