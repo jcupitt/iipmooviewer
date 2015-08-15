@@ -58,7 +58,7 @@
 	         (b) draggable: a boolean, indicating whether the navigation box is draggable.
 	                 Defaults to true, however, if a navigation id is specified, defaults 
 	                 to false.
-	         (c) buttons: an array of the available buttons: reset, zoomIn, zoomOut, rotateLeft, rotateRight
+	         (c) buttons: an array of the available buttons: reset, zoomIn, zoomOut, rotateLeft, rotateRight, addAnnotation
 	                      Defaults to: ['reset','zoomIn','zoomOut'] 
 
    Note: Requires mootools version 1.4 or later <http://www.mootools.net>
@@ -128,8 +128,8 @@ var IIPMooViewer = new Class({
     // Enable fullscreen mode? If false, then disable. Otherwise option can be "native" for HTML5
     // fullscreen API mode or "page" for standard web page fill page mode
     this.enableFullscreen = 'native';
-    if( typeof(options.enableFullcreen) != 'undefined' ){
-      if( options.enableFullcreen == false ) this.enableFullscreen = false;
+    if( typeof(options.enableFullscreen) != 'undefined' ){
+      if( options.enableFullscreen == false ) this.enableFullscreen = false;
       if( options.enableFullscreen == 'page' ) this.enableFullscreen = 'page';
     }
     this.fullscreen = null;
@@ -979,7 +979,7 @@ var IIPMooViewer = new Class({
     // Inject our canvas into the container, but events need to be added 
     // after injection
     this.canvas.inject(this.container);
-    this.canvas.addEvents({
+    this.container.addEvents({
         'mousewheel': this.zoom.bind(this),
         'dblclick': this.zoom.bind(this),
         'mousedown': function (e) { 
@@ -1124,6 +1124,9 @@ var IIPMooViewer = new Class({
 	  if( IIPMooViewer.sync ) IIPMooViewer.windows(_this).invoke( 'reload' );
 	},
 	'scroll': this.scrollNavigation.bind(this),
+	'addAnnotation': function(){
+	  _this.newAnnotation();
+	},
 	'zoom': this.zoom.bind(this)
      });
     }
@@ -1494,6 +1497,9 @@ var IIPMooViewer = new Class({
 
     toolMove: function (tool, e) {
         if (tool === 'light') {
+            console.log('toolMove: e.event.clientX = ' + e.event.clientX);
+            console.log('toolMove: e.event.clientY = ' + e.event.clientY);
+
             var x = e.event.clientX / this.container.clientWidth;
             var y = e.event.clientY / this.container.clientHeight;
 

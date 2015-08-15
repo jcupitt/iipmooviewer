@@ -387,11 +387,29 @@ ArghView.prototype.setPosition = function (viewportLeft, viewportTop) {
 /* Public ... light position in [-1, 1] ... compute the lighting function.
  */
 ArghView.prototype.setLightPosition = function (x, y) {
-    this.hWeight[0] = x * x;
-    this.hWeight[1] = y * y;
-    this.hWeight[2] = x * y;
-    this.lWeight[0] = x;
-    this.lWeight[1] = y;
+    this.log("setLightPosition: x = " + x + ", y = " + y);
+
+    var lx = Math.min(1.0, Math.max(-1.0, x * 1.1));
+    var ly = Math.min(1.0, Math.max(-1.0, y * 1.1));
+
+    var norm = Math.min(1.0, Math.sqrt(lx * lx + ly * ly));
+
+    var alpha;
+    if (lx != 0.0) {
+        alpha = Math.atan2(ly, lx);
+    }
+    else {
+        alpha = Math.PI / 2;
+    }
+
+    var ix = norm * Math.cos(alpha);
+    var iy = norm * Math.sin(alpha);
+
+    this.hWeight[0] = ix * ix;
+    this.hWeight[1] = iy * iy;
+    this.hWeight[2] = ix * iy;
+    this.lWeight[0] = ix;
+    this.lWeight[1] = iy;
     this.lWeight[2] = 1.0;
 }
 
@@ -442,12 +460,12 @@ ArghView.prototype.tileDraw = function (tile, tileSize) {
 
     if (this.RTI) {
         gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_2D, tile.tileL);
-        gl.uniform1i(this.program.tileTextureUniformL, 0);
+        gl.bindTexture(gl.TEXTURE_2D, tile.tileH);
+        gl.uniform1i(this.program.tileTextureLUniform, 1);
 
         gl.activeTexture(gl.TEXTURE2);
-        gl.bindTexture(gl.TEXTURE_2D, tile.tileH);
-        gl.uniform1i(this.program.tileTextureUniformH, 0);
+        gl.bindTexture(gl.TEXTURE_2D, tile.tileL);
+        gl.uniform1i(this.program.tileTextureHUniform, 2);
     }
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.textureCoordsBuffer);
@@ -630,9 +648,9 @@ ArghView.prototype.tileFetch = function (z, x, y) {
             }
 
             if (this.RTI) {
-                var url = this.tileURL(z, tileLeft, tileTop, 1); 
-                newTile.tileH = this.loadTexture(url); 
                 var url = this.tileURL(z, tileLeft, tileTop, 2); 
+                newTile.tileH = this.loadTexture(url); 
+                var url = this.tileURL(z, tileLeft, tileTop, 1); 
                 newTile.tileL = this.loadTexture(url); 
             }
 

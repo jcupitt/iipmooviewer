@@ -164,6 +164,7 @@ var Navigation = new Class({
       if(this.options.navButtons.contains('zoomOut')) navbuttons.getElement('img.zoomOut').addEvent( 'click', function(){ _this.fireEvent('zoomOut'); }); 
       if(this.options.navButtons.contains('rotateLeft')) navbuttons.getElement('img.rotateLeft').addEvent( 'click', function(){ _this.fireEvent('rotate',-90); });
       if(this.options.navButtons.contains('rotateRight')) navbuttons.getElement('img.rotateRight').addEvent( 'click', function(){ _this.fireEvent('rotate',90); });
+      if(this.options.navButtons.contains('addAnnotation')) navbuttons.getElement('img.addAnnotation').addEvent( 'click', function(){ _this.fireEvent('addAnnotation'); });
     }
 
     // add our set of tool buttons ... only one can be active, the name of
