@@ -1497,9 +1497,6 @@ var IIPMooViewer = new Class({
 
     toolMove: function (tool, e) {
         if (tool === 'light') {
-            console.log('toolMove: e.event.clientX = ' + e.event.clientX);
-            console.log('toolMove: e.event.clientY = ' + e.event.clientY);
-
             var x = e.event.clientX / this.container.clientWidth;
             var y = e.event.clientY / this.container.clientHeight;
 
