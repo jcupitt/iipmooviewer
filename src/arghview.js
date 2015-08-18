@@ -59,6 +59,9 @@ var ArghView = function (canvas) {
     // default to 2D rendering
     this.RTI = false;
 
+    // array of overlay lines to draw
+    this.lines = [];
+
     this.initGL();
 };
 
@@ -132,7 +135,7 @@ ArghView.prototype.fragmentShaderSourceRTI =
 " " +
 "    uniform vec3 uHOffset; " +
 "    uniform vec3 uHScale; " +
-"    uniform vec4 uHWeight; " +
+"    uniform vec3 uHWeight; " +
 "    uniform vec3 uLOffset; " +
 "    uniform vec3 uLScale; " +
 "    uniform vec3 uLWeight; " +

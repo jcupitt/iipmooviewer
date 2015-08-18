@@ -1493,6 +1493,14 @@ var IIPMooViewer = new Class({
      */
 
     toolStart: function (tool, e) {
+        if (tool === 'tape') {
+            var x = e.event.clientX;
+            var y = e.event.clientY;
+
+            this.line = {x1: x, y1: y, x2: x, y2: y}
+            this.arghView.setLines([this.line]);
+            this.arghView.draw();
+        }
     },
 
     toolMove: function (tool, e) {
@@ -1505,9 +1513,22 @@ var IIPMooViewer = new Class({
                 this.arghView.draw();
             }
         }
+        if (tool === 'tape') {
+            var x = e.event.clientX;
+            var y = e.event.clientY;
+
+            this.line = {x1: this.line.x1, y1: this.line.y1, x2: x, y2: y}
+            this.arghView.setLines([this.line]);
+            this.arghView.draw();
+        }
     },
 
     toolStop: function (tool, e) {
+        if (tool === 'tape') {
+            this.line = {};
+            this.arghView.setLines([]);
+            this.arghView.draw();
+        }
     }
 
 });
