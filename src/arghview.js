@@ -12,7 +12,8 @@
 
 /* Make a new view oject.
  *
- * canvas: the thing we create the WebGL context on ... we fill this with pixels
+ * canvas: the thing we create the WebGL context on ... we fill this with 
+ * pixels
  */
 var ArghView = function (canvas) {
     this.canvas = canvas;
@@ -75,6 +76,24 @@ ArghView.prototype.log = function (str, options) {
     }
 }
 
+ArghView.prototype.vertexShaderSourceLine = 
+"    attribute vec2 aVertexPosition; " +
+" " +
+"    uniform mat4 uMVMatrix; " +
+"    uniform mat4 uPMatrix; " +
+" " +
+"    void main(void) { " +
+"        gl_Position = " +
+"            uPMatrix * uMVMatrix * vec4(aVertexPosition, 0.0, 1.0); " +
+"   }";
+
+ArghView.prototype.fragmentShaderSourceLine = 
+"    precision lowp float; " +
+" " +
+"    void main(void) { " +
+"        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);" +
+"    } ";
+
 ArghView.prototype.vertexShaderSource = 
 "    attribute vec2 aVertexPosition; " +
 "    attribute vec2 aTextureCoord; " +
@@ -89,13 +108,6 @@ ArghView.prototype.vertexShaderSource =
 "            uPMatrix * uMVMatrix * vec4(aVertexPosition, 0.0, 1.0); " +
 "	     vTextureCoord = aTextureCoord; " +
 "   }";
-
-ArghView.prototype.fragmentShaderSourceLine = 
-"    precision lowp float; " +
-" " +
-"    void main(void) { " +
-"        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);" +
-"    } ";
 
 ArghView.prototype.fragmentShaderSource2D = 
 "    precision lowp float; " +
@@ -120,7 +132,7 @@ ArghView.prototype.fragmentShaderSourceRTI =
 " " +
 "    uniform vec3 uHOffset; " +
 "    uniform vec3 uHScale; " +
-"    uniform vec3 uHWeight; " +
+"    uniform vec4 uHWeight; " +
 "    uniform vec3 uLOffset; " +
 "    uniform vec3 uLScale; " +
 "    uniform vec3 uLWeight; " +
@@ -159,6 +171,39 @@ ArghView.prototype.bufferCreate = function (points) {
     vertexBuffer.numItems = points.length;
 
     return vertexBuffer;
+}
+
+/* Same, but make a buffer that will join pairs of points with discontinuous
+ * lines.
+ */
+ArghView.prototype.bufferCreateDiscontinuous = function (points) {
+    var gl = this.gl;
+
+    if (points.length % 2 != 0) {
+        console.log("bufferCreateDiscontinuous: not an even number of points");
+    }
+
+    var vertex = [];
+    var index = [];
+    for (var i = 0; i < points.length; i++) {
+        vertex.push(points[i][0]);
+        vertex.push(points[i][1]);
+        index.push(i);
+    }
+
+    var vertex_buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertex), gl.STATIC_DRAW);
+    vertex_buffer.itemSize = 2;
+    vertex_buffer.numItems = points.length;
+
+    var index_buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index_buffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(index), gl.STATIC_DRAW);
+    index_buffer.itemSize = 1;
+    index_buffer.numItems = points.length;
+
+    return [vertex_buffer, index_buffer];
 }
 
 ArghView.prototype.mvPushMatrix = function () {
@@ -203,7 +248,10 @@ ArghView.prototype.initGL = function () {
         return shader;
     }
 
-    var vertexShader = compileShader(gl.VERTEX_SHADER, this.vertexShaderSource);
+    var vertexShader = 
+        compileShader(gl.VERTEX_SHADER, this.vertexShaderSource);
+    var vertexShaderLine = 
+        compileShader(gl.VERTEX_SHADER, this.vertexShaderSourceLine);
     var fragmentShader2D = 
         compileShader(gl.FRAGMENT_SHADER, this.fragmentShaderSource2D);
     var fragmentShaderLine = 
@@ -237,8 +285,8 @@ ArghView.prototype.initGL = function () {
         return program;
     }
 
+    this.programLine = linkProgram(vertexShaderLine, fragmentShaderLine);
     this.program2D = linkProgram(vertexShader, fragmentShader2D);
-    this.programLine = linkProgram(vertexShader, fragmentShaderLine);
     this.programRTI = linkProgram(vertexShader, fragmentShaderRTI);
 
     var program = this.programRTI;
@@ -269,13 +317,10 @@ ArghView.prototype.initGL = function () {
     this.textureCoordsBuffer = this.vertexBuffer; 
 
     // draw overlay lines with this, scaled and rotated
-    this.lineBuffer = this.bufferCreate([[0, 0], [1, 0]])
+    this.lineBuffer = this.bufferCreateDiscontinuous([[0, 0], [1, 0]]);
 
     // black background
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
-
-    // a test line for the overlap
-    this.lines = [{x1: 0, y1: 0, x2: 100, y2: 100}];
 }
 
 /* Public: set the source for image tiles ... parameters matched to 
@@ -354,7 +399,7 @@ ArghView.prototype.setLayer = function (layer) {
 
     this.log("  (layer set to " + layer + ")");
 
-    // we may need to move the image, for example to change the centreing 
+    // we may need to move the image, for example to change the centring 
     this.setPosition(this.viewportLeft, this.viewportTop);
 };
 
@@ -440,8 +485,17 @@ ArghView.prototype.setScaleOffset =
     }
 }
 
-// draw a tile at a certain tileSize ... tiles can be drawn very large if we are
-// using a low-res tile as a placeholder while a high-res tile is being loaded
+/* Public ... set the overlay lines. An array of line objects, eg. 
+ * argh.setLines([{x1: 100, y1: 100, x2: 500, y2: 200}]);
+ */
+ArghView.prototype.setLines = function (lines) {
+    this.lines = lines;
+}
+
+/* draw a tile at a certain tileSize ... tiles can be drawn very large if we 
+ * are using a low-res tile as a placeholder while a high-res tile is being 
+ * loaded
+ */
 ArghView.prototype.tileDraw = function (tile, tileSize) {
     var gl = this.gl;
 
@@ -506,15 +560,30 @@ ArghView.prototype.lineDraw = function (line) {
 
     this.mvPushMatrix();
 
-    mat4.translate(this.mvMatrix, [line.x1, this.viewportHeight - line.y1, 0]); 
-    mat4.scale(this.mvMatrix, [line.x2 - line.x1, line.y2 - line.y1, 1]);
+    var scale = this.maxSize.w / this.layerProperties[this.layer].width;
+
+    var x1 = line.x1 / scale - this.viewportLeft;
+    var y1 = this.viewportHeight - (line.y1 / scale - this.viewportTop);
+    var x2 = line.x2 / scale - this.viewportLeft;
+    var y2 = this.viewportHeight - (line.y2 / scale - this.viewportTop);
+
+    var dx = x2 - x1;
+    var dy = y2 - y1;
+    var length = Math.sqrt(dx * dx + dy * dy);
+    var angle = Math.atan2(dy, dx);
+
+    mat4.translate(this.mvMatrix, [x1, y1, 0]); 
+    mat4.scale(this.mvMatrix, [length, length, 1]);
+    mat4.rotate(this.mvMatrix, angle, [0, 0, 1]);
     this.setMatrixUniforms();
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.lineBuffer);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.lineBuffer[0]);
     gl.enableVertexAttribArray(this.program.vertexPositionAttribute);
     gl.vertexAttribPointer(this.program.vertexPositionAttribute,
-        this.lineBuffer.itemSize, gl.FLOAT, false, 0, 0);
-    gl.drawArrays(gl.LINE_LOOP, 0, this.lineBuffer.numItems);
+        this.lineBuffer[0].itemSize, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.lineBuffer[1]);
+    gl.drawElements(gl.LINES,
+        this.lineBuffer[1].numItems, gl.UNSIGNED_SHORT, 0);
 
     this.mvPopMatrix();
 }
@@ -764,7 +833,7 @@ ArghView.prototype.draw = function () {
 
                 if (tile &&
                     tile.isReady()) { 
-                    //this.tileDraw(tile, tileSize);
+                    this.tileDraw(tile, tileSize);
                 }
             }
         }
