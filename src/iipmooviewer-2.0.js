@@ -1494,10 +1494,11 @@ var IIPMooViewer = new Class({
 
     toolStart: function (tool, e) {
         if (tool === 'tape') {
-            var x = e.event.clientX;
-            var y = e.event.clientY;
+            var screen_point = [e.event.clientX, e.event.clientY];
+            var image_point = this.arghView.screen2image(screen_point);
 
-            this.line = {x1: x, y1: y, x2: x, y2: y}
+            this.line = {x1: image_point[0], y1: image_point[1], 
+                x2: image_point[0], y2: image_point[1]};
             this.arghView.setLines([this.line]);
             this.arghView.draw();
         }
@@ -1514,10 +1515,11 @@ var IIPMooViewer = new Class({
             }
         }
         if (tool === 'tape') {
-            var x = e.event.clientX;
-            var y = e.event.clientY;
+            var screen_point = [e.event.clientX, e.event.clientY];
+            var image_point = this.arghView.screen2image(screen_point);
 
-            this.line = {x1: this.line.x1, y1: this.line.y1, x2: x, y2: y}
+            this.line = {x1: this.line.x1, y1: this.line.y1, 
+                x2: image_point[0], y2: image_point[1]};
             this.arghView.setLines([this.line]);
             this.arghView.draw();
         }
@@ -1525,6 +1527,22 @@ var IIPMooViewer = new Class({
 
     toolStop: function (tool, e) {
         if (tool === 'tape') {
+            var dx = this.line.x2 - this.line.x1;
+            var dy = this.line.y2 - this.line.y1;
+            var length_px = Math.sqrt(dx * dx + dy * dy);
+            var units;
+            var length_units;
+            if (this.scale) {
+                units = this.scale.units.dims[this.scale.defaultUnit];
+                length_units = length_px / this.scale.pixelscale;
+            }
+            else {
+                units = "px";
+                length_units = length_px;
+            }
+
+            alert( "Length: " + length_units + units);
+
             this.line = {};
             this.arghView.setLines([]);
             this.arghView.draw();
@@ -1532,8 +1550,6 @@ var IIPMooViewer = new Class({
     }
 
 });
-
-
 
 /* Static function for synchronizing iipmooviewer instances
  */

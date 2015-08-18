@@ -495,6 +495,22 @@ ArghView.prototype.setLines = function (lines) {
     this.lines = lines;
 }
 
+/* Transform from screen coordinates to image coordinates. Screen cods are the
+ * things we get from eg. event.clientX. Image cods are coordinates in the
+ * image we are displaying, in terms of the highest-res image layer. 
+ */
+ArghView.prototype.screen2image = function (point) {
+    var x = point[0];
+    var y = point[1];
+
+    var scale = this.maxSize.w / this.layerProperties[this.layer].width;
+
+    var x1 = (x + this.viewportLeft) * scale;
+    var y1 = (y + this.viewportTop) * scale;
+
+    return [x1, y1];
+}
+
 /* draw a tile at a certain tileSize ... tiles can be drawn very large if we 
  * are using a low-res tile as a placeholder while a high-res tile is being 
  * loaded
