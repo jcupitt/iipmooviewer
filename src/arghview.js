@@ -12,7 +12,8 @@
 
 /* Make a new view oject.
  *
- * canvas: the thing we create the WebGL context on ... we fill this with pixels
+ * canvas: the thing we create the WebGL context on ... we fill this with 
+ * pixels
  */
 var ArghView = function (canvas) {
     this.canvas = canvas;
@@ -58,6 +59,9 @@ var ArghView = function (canvas) {
     // default to 2D rendering
     this.RTI = false;
 
+    // array of overlay lines to draw
+    this.lines = [];
+
     this.initGL();
 };
 
@@ -68,12 +72,30 @@ ArghView.prototype.log = function (str, options) {
     var level = options.level || 2;
 
     // higher numbers mean more important messages  
-    var loggingLevel = 4;
+    var loggingLevel = 2;
 
     if (level >= loggingLevel) {
         console.log(str);
     }
 }
+
+ArghView.prototype.vertexShaderSourceLine = 
+"    attribute vec2 aVertexPosition; " +
+" " +
+"    uniform mat4 uMVMatrix; " +
+"    uniform mat4 uPMatrix; " +
+" " +
+"    void main(void) { " +
+"        gl_Position = " +
+"            uPMatrix * uMVMatrix * vec4(aVertexPosition, 0.0, 1.0); " +
+"   }";
+
+ArghView.prototype.fragmentShaderSourceLine = 
+"    precision lowp float; " +
+" " +
+"    void main(void) { " +
+"        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);" +
+"    } ";
 
 ArghView.prototype.vertexShaderSource = 
 "    attribute vec2 aVertexPosition; " +
@@ -133,7 +155,7 @@ ArghView.prototype.fragmentShaderSourceRTI =
 "        gl_FragColor = vec4(colour, 1.0); " +
 "    } ";
 
-/* points is a 2D array of like [[x1, y1], [x2, y2], ..], make a 
+/* points is a 2D array eg. [[x1, y1], [x2, y2], ..], make a 
  * draw buffer.
  */
 ArghView.prototype.bufferCreate = function (points) {
@@ -152,6 +174,39 @@ ArghView.prototype.bufferCreate = function (points) {
     vertexBuffer.numItems = points.length;
 
     return vertexBuffer;
+}
+
+/* Same, but make a buffer that will join pairs of points with discontinuous
+ * lines.
+ */
+ArghView.prototype.bufferCreateDiscontinuous = function (points) {
+    var gl = this.gl;
+
+    if (points.length % 2 != 0) {
+        console.log("bufferCreateDiscontinuous: not an even number of points");
+    }
+
+    var vertex = [];
+    var index = [];
+    for (var i = 0; i < points.length; i++) {
+        vertex.push(points[i][0]);
+        vertex.push(points[i][1]);
+        index.push(i);
+    }
+
+    var vertex_buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertex_buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertex), gl.STATIC_DRAW);
+    vertex_buffer.itemSize = 2;
+    vertex_buffer.numItems = points.length;
+
+    var index_buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index_buffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(index), gl.STATIC_DRAW);
+    index_buffer.itemSize = 1;
+    index_buffer.numItems = points.length;
+
+    return [vertex_buffer, index_buffer];
 }
 
 ArghView.prototype.mvPushMatrix = function () {
@@ -196,9 +251,14 @@ ArghView.prototype.initGL = function () {
         return shader;
     }
 
-    var vertexShader = compileShader(gl.VERTEX_SHADER, this.vertexShaderSource);
+    var vertexShader = 
+        compileShader(gl.VERTEX_SHADER, this.vertexShaderSource);
+    var vertexShaderLine = 
+        compileShader(gl.VERTEX_SHADER, this.vertexShaderSourceLine);
     var fragmentShader2D = 
         compileShader(gl.FRAGMENT_SHADER, this.fragmentShaderSource2D);
+    var fragmentShaderLine = 
+        compileShader(gl.FRAGMENT_SHADER, this.fragmentShaderSourceLine);
     var fragmentShaderRTI = 
         compileShader(gl.FRAGMENT_SHADER, this.fragmentShaderSourceRTI);
 
@@ -228,8 +288,8 @@ ArghView.prototype.initGL = function () {
         return program;
     }
 
+    this.programLine = linkProgram(vertexShaderLine, fragmentShaderLine);
     this.program2D = linkProgram(vertexShader, fragmentShader2D);
-
     this.programRTI = linkProgram(vertexShader, fragmentShaderRTI);
 
     var program = this.programRTI;
@@ -258,6 +318,9 @@ ArghView.prototype.initGL = function () {
     // we draw tiles as 1x1 squares, scaled, translated and textured
     this.vertexBuffer = this.bufferCreate([[1, 1], [1, 0], [0, 1], [0, 0]]);
     this.textureCoordsBuffer = this.vertexBuffer; 
+
+    // draw overlay lines with this, scaled and rotated
+    this.lineBuffer = this.bufferCreateDiscontinuous([[0, 0], [1, 0]]);
 
     // black background
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
@@ -339,7 +402,7 @@ ArghView.prototype.setLayer = function (layer) {
 
     this.log("  (layer set to " + layer + ")");
 
-    // we may need to move the image, for example to change the centreing 
+    // we may need to move the image, for example to change the centring 
     this.setPosition(this.viewportLeft, this.viewportTop);
 };
 
@@ -425,8 +488,33 @@ ArghView.prototype.setScaleOffset =
     }
 }
 
-// draw a tile at a certain tileSize ... tiles can be drawn very large if we are
-// using a low-res tile as a placeholder while a high-res tile is being loaded
+/* Public ... set the overlay lines. An array of line objects, eg. 
+ * argh.setLines([{x1: 100, y1: 100, x2: 500, y2: 200}]);
+ */
+ArghView.prototype.setLines = function (lines) {
+    this.lines = lines;
+}
+
+/* Transform from screen coordinates to image coordinates. Screen cods are the
+ * things we get from eg. event.clientX. Image cods are coordinates in the
+ * image we are displaying, in terms of the highest-res image layer. 
+ */
+ArghView.prototype.screen2image = function (point) {
+    var x = point[0];
+    var y = point[1];
+
+    var scale = this.maxSize.w / this.layerProperties[this.layer].width;
+
+    var x1 = (x + this.viewportLeft) * scale;
+    var y1 = (y + this.viewportTop) * scale;
+
+    return [x1, y1];
+}
+
+/* draw a tile at a certain tileSize ... tiles can be drawn very large if we 
+ * are using a low-res tile as a placeholder while a high-res tile is being 
+ * loaded
+ */
 ArghView.prototype.tileDraw = function (tile, tileSize) {
     var gl = this.gl;
 
@@ -482,6 +570,42 @@ ArghView.prototype.tileDraw = function (tile, tileSize) {
 
     this.mvPopMatrix();
 };
+
+ArghView.prototype.lineDraw = function (line) {
+    var gl = this.gl;
+
+    this.log("ArghView.lineDraw: x1 = " + line.x1 + ", y1 = " + line.y1 + 
+        ", x2 = " + line.x2 + ", y2 = " + line.y2)
+
+    this.mvPushMatrix();
+
+    var scale = this.maxSize.w / this.layerProperties[this.layer].width;
+
+    var x1 = line.x1 / scale - this.viewportLeft;
+    var y1 = this.viewportHeight - (line.y1 / scale - this.viewportTop);
+    var x2 = line.x2 / scale - this.viewportLeft;
+    var y2 = this.viewportHeight - (line.y2 / scale - this.viewportTop);
+
+    var dx = x2 - x1;
+    var dy = y2 - y1;
+    var length = Math.sqrt(dx * dx + dy * dy);
+    var angle = Math.atan2(dy, dx);
+
+    mat4.translate(this.mvMatrix, [x1, y1, 0]); 
+    mat4.scale(this.mvMatrix, [length, length, 1]);
+    mat4.rotate(this.mvMatrix, angle, [0, 0, 1]);
+    this.setMatrixUniforms();
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.lineBuffer[0]);
+    gl.enableVertexAttribArray(this.program.vertexPositionAttribute);
+    gl.vertexAttribPointer(this.program.vertexPositionAttribute,
+        this.lineBuffer[0].itemSize, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.lineBuffer[1]);
+    gl.drawElements(gl.LINES,
+        this.lineBuffer[1].numItems, gl.UNSIGNED_SHORT, 0);
+
+    this.mvPopMatrix();
+}
 
 // get a tile from cache
 ArghView.prototype.tileGet = function (z, x, y) {
@@ -731,6 +855,16 @@ ArghView.prototype.draw = function () {
                     this.tileDraw(tile, tileSize);
                 }
             }
+        }
+    }
+
+    // now draw any overlay lines
+    if (this.lines.length > 0) {
+        this.program = this.programLine;
+        gl.useProgram(this.program);
+
+        for (var i = 0; i < this.lines.length; i++) {
+            this.lineDraw(this.lines[i]);
         }
     }
 };
