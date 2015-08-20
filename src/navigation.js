@@ -91,6 +91,8 @@ var Navigation = new Class({
       });
       navimage.inject(navwin);
 
+      navimage.addEvent('mousedown', function (e) { e.stop(); });
+
 
       // Create our navigation zone and inject inside the navigation div
       this.zone = new Element( 'div', {
@@ -108,6 +110,8 @@ var Navigation = new Class({
         }
       });
       this.zone.inject(navwin);
+
+      this.zone.addEvent('mousedown', function (e) { e.stop(); });
 
       if( this.options.showCoords ){
         // Create our coordinates viewer
@@ -155,8 +159,7 @@ var Navigation = new Class({
       // Need to set this after injection
       navbuttons.set('slide', {duration: 300, transition: Fx.Transitions.Quad.easeInOut, mode:'vertical'});
 
-        var _this = this;
-
+      var _this = this;
 
       // Add events to our buttons
       if(this.options.navButtons.contains('reset')) navbuttons.getElement('img.reset').addEvent( 'click', function(){ _this.fireEvent('reload'); });
@@ -165,6 +168,10 @@ var Navigation = new Class({
       if(this.options.navButtons.contains('rotateLeft')) navbuttons.getElement('img.rotateLeft').addEvent( 'click', function(){ _this.fireEvent('rotate',-90); });
       if(this.options.navButtons.contains('rotateRight')) navbuttons.getElement('img.rotateRight').addEvent( 'click', function(){ _this.fireEvent('rotate',90); });
       if(this.options.navButtons.contains('addAnnotation')) navbuttons.getElement('img.addAnnotation').addEvent( 'click', function(){ _this.fireEvent('addAnnotation'); });
+
+      // we want to stop mousedown on the buttons reaching our parent .. it can 
+      // trigger actions like light movement
+      navbuttons.addEvent('mousedown', function (e) { e.stop(); });
     }
 
     // add our set of tool buttons ... only one can be active, the name of
@@ -235,25 +242,6 @@ var Navigation = new Class({
         });
     }
 
-    // Add a progress bar only if we have the navigation window visible
-    if( this.options.showNavWindow ){
-
-      // Create our progress bar
-      var loadBarContainer = new Element('div', {
-        'class': 'loadBarContainer',
-        'html': '<div class="loadBar"></div>',
-        'styles': { width: this.size.x - 2 },
-         'tween': {
-           duration: 1000,
-           transition: Fx.Transitions.Sine.easeOut,
-           link: 'cancel'
-         }
-      });
-      loadBarContainer.inject(this.navcontainer);
-
-    }
-
-
     // Inject our navigation container into our holding div
     this.navcontainer.inject(container);
 
@@ -261,14 +249,14 @@ var Navigation = new Class({
     if( this.options.showNavWindow ){
       this.zone.makeDraggable({
         container: this.navcontainer.getElement('div.navwin'),
-          // Take a note of the starting coords of our drag zone
-          onStart: function() {
-            var pos = _this.zone.getPosition();
-            _this.position = {x: pos.x, y: pos.y-10};
-            _this.zone.get('morph').cancel();
-          },
-          onComplete: this.scroll.bind(this)
-        });
+        // Take a note of the starting coords of our drag zone
+        onStart: function() {
+          var pos = _this.zone.getPosition();
+          _this.position = {x: pos.x, y: pos.y-10};
+          _this.zone.get('morph').cancel();
+        },
+        onComplete: this.scroll.bind(this)
+      });
     }
 
     if(!this.standalone) this.navcontainer.makeDraggable( {container:container, handle:toolbar} );
@@ -284,38 +272,6 @@ var Navigation = new Class({
     if( this.navcontainer ){
       this.navcontainer.get('reveal').toggle();
     }
-  },
-
-
-  /* Update the tile download progress bar
-   */
-  refreshLoadBar: function( nTilesLoaded, nTilesToLoad ) {
-
-    if( !this.options.showNavWindow ) return;
-
-    // Update the loaded tiles number, grow the loadbar size
-    var w = (nTilesLoaded / nTilesToLoad) * this.size.x;
-
-    var loadBarContainer = this.navcontainer.getElement('div.loadBarContainer');
-    var loadBar = loadBarContainer.getElement('div.loadBar');
-    loadBar.setStyle( 'width', w );
-
-    // Display the % in the progress bar
-    loadBar.set( 'html', IIPMooViewer.lang.loading + '&nbsp;:&nbsp;' + Math.round(nTilesLoaded/nTilesToLoad*100) + '%' );
-
-    if( loadBarContainer.style.opacity != '0.85' ){
-      loadBarContainer.setStyles({
-        visibility: 'visible',
-        opacity: 0.85
-      });
-    }
-
-    // If we're done with loading, fade out the load bar
-    if( nTilesLoaded >= nTilesToLoad ){
-      // Fade out our progress bar and loading animation in a chain
-      loadBarContainer.fade('out');
-    }
-
   },
 
 

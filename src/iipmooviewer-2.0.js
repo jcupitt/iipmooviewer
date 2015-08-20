@@ -1003,11 +1003,16 @@ var IIPMooViewer = new Class({
             }
         }.bind(this), 
         'mouseup': function (e) { 
-            this.toolOn = null;
-
-            if (this.currentTool) {
+            if (this.currentTool &&
+                this.toolOn === this.currentTool) {
+                // signal move, so even if we just click, we always get a move 
+                // event .. this lets us put the action just in the toolMove 
+                // handler
+                this.toolMove(this.currentTool, e);
                 this.toolStop(this.currentTool, e);
             }
+
+            this.toolOn = null;
         }.bind(this),
         'mouseenter': function () { 
             if (_this.navigation && _this.navigation.coords) {
@@ -1530,18 +1535,22 @@ var IIPMooViewer = new Class({
             var dx = this.line.x2 - this.line.x1;
             var dy = this.line.y2 - this.line.y1;
             var length_px = Math.sqrt(dx * dx + dy * dy);
-            var units;
-            var length_units;
-            if (this.scale) {
-                units = this.scale.units.dims[this.scale.defaultUnit];
-                length_units = length_px / this.scale.pixelscale;
-            }
-            else {
-                units = "px";
-                length_units = length_px;
-            }
 
-            alert( "Length: " + length_units + units);
+            if (length_px > 0) {
+                var units;
+                var length_units;
+
+                if (this.scale) {
+                    units = this.scale.units.dims[this.scale.defaultUnit];
+                    length_units = length_px / this.scale.pixelscale;
+                }
+                else {
+                    units = "px";
+                    length_units = length_px;
+                }
+
+                alert( "Length: " + length_units + units);
+            }
 
             this.line = {};
             this.arghView.setLines([]);
