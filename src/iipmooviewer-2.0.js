@@ -384,7 +384,9 @@ var IIPMooViewer = new Class({
       if(e.control) prompt( "URL of current view:", window.location.href.split("#")[0] + '#' +
                             (this.view.x+this.view.w/2)/this.wid + ',' +
                             (this.view.y+this.view.h/2)/this.hei + ',' +
-                            this.view.res );
+                            this.view.res + ',' +
+                            this.view.light_x + ',' +
+                            this.view.light_y );
       break;
     default:
       break;
@@ -598,6 +600,17 @@ var IIPMooViewer = new Class({
     this.updateNavigation();
   },
 
+    /* Set a light position. We need to record a copy of the position for ^C and 
+     * annotations.
+     */
+    setLightPosition: function (light_x, light_y) {
+        this.view.light_x = light_x;
+        this.view.light_y = light_y;
+
+        if (this.arghView) { 
+            this.arghView.setLightPosition(light_x, light_y);
+        }
+    },
 
 
   /* Move to and center at a particular point
@@ -840,6 +853,8 @@ var IIPMooViewer = new Class({
     this.view.y = -1;
     this.view.w = target_size.x;
     this.view.h = target_size.y;
+
+    this.setLightPosition(0, 0);
 
     // Calculate our navigation window size
     if( this.navigation ) this.calculateNavSize();
@@ -1224,7 +1239,7 @@ var IIPMooViewer = new Class({
                                       this.protocol.offset.slice(0, 3),
                                       this.protocol.scale.slice(3, 6),
                                       this.protocol.offset.slice(3, 6));
-        this.arghView.setLightPosition(0, 0);
+        this.setLightPosition(0, 0);
     }
 
     // Load our images
@@ -1418,7 +1433,7 @@ var IIPMooViewer = new Class({
     }
     else this.recenter();
 
-    this.arghView.setLightPosition(0, 0);
+    this.setLightPosition(0, 0);
 
     this.canvas.setStyles({
       width: this.wid,
@@ -1515,7 +1530,7 @@ var IIPMooViewer = new Class({
             var y = e.event.clientY / this.container.clientHeight;
 
             if (this.protocol.isRTI) {
-                this.arghView.setLightPosition(x * 2 - 1, y * 2 - 1);
+                this.setLightPosition(x * 2 - 1, y * 2 - 1);
                 this.arghView.draw();
             }
         }
