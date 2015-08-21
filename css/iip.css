@@ -483,7 +483,8 @@ a.logo:link, a.logo:visited {
   margin-top: 20px;
   margin-left: auto;
   margin-right: auto;
-  position: relative;
+  position: absolute;
+  top: 8px;
   z-index: 5;
   padding: 0.5em;
   opacity: 0.7;

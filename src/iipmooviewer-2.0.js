@@ -429,16 +429,18 @@ var IIPMooViewer = new Class({
 
   /* Toggle fullscreen
    */
-  toggleFullScreen: function(){
-    var l,t,w,h;
+  toggleFullScreen: function () {
+    var l, t, w, h, p;
 
-    if(this.enableFullscreen == false) return;
+    if (this.enableFullscreen == false) {
+      return;
+    }
 
-    if( !this.fullscreen.isFullscreen ){
+    if (!this.fullscreen.isFullscreen) {
       // Note our size, location and positioning
       this.fullscreen.targetsize = {
-        pos: {x: this.container.style.left, y: this.container.style.top },
-        size: {x: this.container.style.width, y: this.container.style.height },
+        pos: {x: this.container.style.left, y: this.container.style.top},
+        size: {x: this.container.style.width, y: this.container.style.height},
         position: this.container.style.position
       };
       l = 0;
@@ -447,19 +449,23 @@ var IIPMooViewer = new Class({
       h = '100%';
       p = 'absolute'; // Must make our container absolute for fullscreen
 
-      if( this.fullscreen.enter ) this.fullscreen.enter.call(this.container);
+      if (this.fullscreen.enter) {
+        this.fullscreen.enter.call(this.container);
+      }
     }
-    else{
+    else {
       l = this.fullscreen.targetsize.pos.x;
       t = this.fullscreen.targetsize.pos.y;
       w = this.fullscreen.targetsize.size.x;
       h = this.fullscreen.targetsize.size.y;
       p = this.fullscreen.targetsize.position;
 
-      if( this.fullscreen.exit ) this.fullscreen.exit.call(document);
+      if (this.fullscreen.exit) {
+        this.fullscreen.exit.call(document);
+      }
     }
 
-    if( !this.fullscreen.enter ){
+    if (!this.fullscreen.enter) {
       this.container.setStyles({
         left: l,
         top: t,
@@ -468,28 +474,43 @@ var IIPMooViewer = new Class({
         position: p
       });
       this.fullscreen.isFullscreen = !this.fullscreen.isFullscreen;
+
       // Create a fullscreen message, then delete after a timeout
-      if( this.fullscreen.isFullscreen ) this.showPopUp( IIPMooViewer.lang.exitFullscreen );
-      else this.container.getElements('div.message').destroy();
+      if (this.fullscreen.isFullscreen) {
+        this.showPopUp(IIPMooViewer.lang.exitFullscreen);
+      }
+      else {
+        this.container.getElements('div.message').destroy();
+      }
       this.reload();
     }
-
   },
-
 
   /* Show a message, then delete after a timeout
    */
-  showPopUp: function( text ) {
-    var fs = new Element('div',{
-      'class': 'message',
-      'html': text
-    }).inject( this.container );
+  showPopUp: function (text) {
+    this.log("showPopUp: text = " + text);
+
+    var fs = new Element('div', {
+      class: 'message',
+      html: text
+    }).inject(this.container);
+
     var del;
-    if( Browser.buggy ) del = function(){ fs.destroy(); };
-    else del = function(){ fs.fade('out').get('tween').chain( function(){ fs.destroy(); } ); };
+    if (Browser.buggy) {
+      del = function () {
+        fs.destroy();
+      };
+    }
+    else {
+      del = function () { 
+        fs.fade('out').get('tween').chain(function () {
+          fs.destroy(); 
+        }); 
+      };
+    }
     del.delay(3000);
   },
-
 
   /* Scroll resulting from a drag of the navigation window
    */
@@ -1483,124 +1504,127 @@ var IIPMooViewer = new Class({
   /* Recenter the image view
    */
   recenter: function(){
-
     // Calculate the x,y for a centered view, making sure we have no negative
     // in case our resolution is smaller than the viewport
-    var xoffset = Math.round( (this.wid-this.view.w)/2 );
-    this.view.x = (xoffset<0)? 0 : xoffset;
+    var xoffset = Math.round((this.wid - this.view.w) / 2);
+    this.view.x = (xoffset < 0) ? 0 : xoffset;
 
-    var yoffset = Math.round( (this.hei-this.view.h)/2 );
-    this.view.y = (yoffset<0)? 0 : yoffset;
+    var yoffset = Math.round((this.hei - this.view.h) / 2);
+    this.view.y = (yoffset < 0) ? 0 : yoffset;
 
     // Center our canvas, taking into account images smaller than the viewport
     this.positionCanvas();
     this.constrain();
-
   },
-
 
   /* Constrain the movement of our canvas to our containing div
    */
-  constrain: function(){
+  constrain: function () {
+    var ax = this.wid < this.view.w ? 
+      Array(Math.round((this.view.w - this.wid) / 2), Math.round((this.view.w - this.wid) / 2)) : 
+      Array(this.view.w - this.wid, 0);
+    var ay = this.hei < this.view.h ? 
+      Array(Math.round((this.view.h - this.hei) / 2), Math.round((this.view.h - this.hei) / 2)) : 
+      Array(this.view.h - this.hei, 0);
 
-    var ax = this.wid<this.view.w ? Array(Math.round((this.view.w-this.wid)/2), Math.round((this.view.w-this.wid)/2)) : Array(this.view.w-this.wid,0);
-    var ay = this.hei<this.view.h ? Array(Math.round((this.view.h-this.hei)/2), Math.round((this.view.h-this.hei)/2)) : Array(this.view.h-this.hei,0);
-    if( this.touch ) this.touch.options.limit = { x: ax, y: ay };
+    if (this.touch) {
+      this.touch.options.limit = { x: ax, y: ay };
+    }
   },
-
 
   /* Correctly position the canvas, taking into account images smaller than the viewport
    */
-  positionCanvas: function(){
+  positionCanvas: function () {
     this.canvas.setStyles({
-      left: (this.wid>this.view.w)? -this.view.x : Math.round((this.view.w-this.wid)/2),
-      top : (this.hei>this.view.h)? -this.view.y : Math.round((this.view.h-this.hei)/2)
+      left: (this.wid > this.view.w) ? 
+        -this.view.x : 
+        Math.round((this.view.w - this.wid) / 2),
+      top : (this.hei > this.view.h) ? 
+        -this.view.y : 
+        Math.round((this.view.h - this.hei) / 2)
     });
   },
 
-
   /* Update navigation window
    */
-  updateNavigation: function(){
-    if( this.navigation ){
+  updateNavigation: function () {
+    if (this.navigation) {
       var view = this.getView();
-      this.navigation.update( view.x/this.wid, view.y/this.hei, view.w/this.wid, view.h/this.hei );
+      this.navigation.update(view.x / this.wid, view.y / this.hei, view.w / this.wid, view.h / this.hei);
     }
   },
   
   /* Toggle navigation window
    */
-  toggleNavigationWindow: function() {
-    if( this.navigation ) {
+  toggleNavigationWindow: function () {
+    if (this.navigation) {
       this.navigation.toggleWindow();
     }
   },
 
-    /* Tool handling ... start move and stop handlers when a tool is selected.
-     * @tool can be eg. 'light' or 'tape'.
-     */
+  /* Tool handling ... start move and stop handlers when a tool is selected.
+   * @tool can be eg. 'light' or 'tape'.
+   */
+  toolStart: function (tool, e) {
+    if (tool === 'tape') {
+      var screen_point = [e.event.clientX, e.event.clientY];
+      var image_point = this.arghView.screen2image(screen_point);
 
-    toolStart: function (tool, e) {
-        if (tool === 'tape') {
-            var screen_point = [e.event.clientX, e.event.clientY];
-            var image_point = this.arghView.screen2image(screen_point);
-
-            this.line = {x1: image_point[0], y1: image_point[1], 
-                x2: image_point[0], y2: image_point[1]};
-            this.arghView.setLines([this.line]);
-            this.arghView.draw();
-        }
-    },
-
-    toolMove: function (tool, e) {
-        if (tool === 'light') {
-            var x = e.event.clientX / this.container.clientWidth;
-            var y = e.event.clientY / this.container.clientHeight;
-
-            if (this.protocol.isRTI) {
-                this.setLightPosition(x * 2 - 1, y * 2 - 1);
-                this.arghView.draw();
-            }
-        }
-        if (tool === 'tape') {
-            var screen_point = [e.event.clientX, e.event.clientY];
-            var image_point = this.arghView.screen2image(screen_point);
-
-            this.line = {x1: this.line.x1, y1: this.line.y1, 
-                x2: image_point[0], y2: image_point[1]};
-            this.arghView.setLines([this.line]);
-            this.arghView.draw();
-        }
-    },
-
-    toolStop: function (tool, e) {
-        if (tool === 'tape') {
-            var dx = this.line.x2 - this.line.x1;
-            var dy = this.line.y2 - this.line.y1;
-            var length_px = Math.sqrt(dx * dx + dy * dy);
-
-            if (length_px > 0) {
-                var units;
-                var length_units;
-
-                if (this.scale) {
-                    units = this.scale.units.dims[this.scale.defaultUnit];
-                    length_units = length_px / this.scale.pixelscale;
-                }
-                else {
-                    units = "px";
-                    length_units = length_px;
-                }
-
-                alert( "Length: " + length_units + units);
-            }
-
-            this.line = {};
-            this.arghView.setLines([]);
-            this.arghView.draw();
-        }
+      this.line = {x1: image_point[0], y1: image_point[1], 
+              x2: image_point[0], y2: image_point[1]};
+      this.arghView.setLines([this.line]);
+      this.arghView.draw();
     }
+  },
 
+  toolMove: function (tool, e) {
+    if (tool === 'light') {
+      var x = e.event.clientX / this.container.clientWidth;
+      var y = e.event.clientY / this.container.clientHeight;
+
+      if (this.protocol.isRTI) {
+        this.setLightPosition(x * 2 - 1, y * 2 - 1);
+        this.arghView.draw();
+      }
+    }
+    else if (tool === 'tape') {
+      var screen_point = [e.event.clientX, e.event.clientY];
+      var image_point = this.arghView.screen2image(screen_point);
+
+      this.line = {x1: this.line.x1, y1: this.line.y1, 
+        x2: image_point[0], y2: image_point[1]};
+      this.arghView.setLines([this.line]);
+      this.arghView.draw();
+    }
+  },
+
+  toolStop: function (tool, e) {
+    if (tool === 'tape') {
+      var dx = this.line.x2 - this.line.x1;
+      var dy = this.line.y2 - this.line.y1;
+      var length_px = Math.sqrt(dx * dx + dy * dy);
+
+      if (length_px > 0) {
+        var units;
+        var length_units;
+
+        if (this.scale) {
+          units = this.scale.units.dims[this.scale.defaultUnit];
+          length_units = length_px / this.scale.pixelscale;
+        }
+        else {
+          units = "px";
+          length_units = length_px;
+        }
+
+        this.showPopUp("Length: " + length_units + units);
+      }
+
+      this.line = {};
+      this.arghView.setLines([]);
+      this.arghView.draw();
+    }
+  }
 });
 
 /* Static function for synchronizing iipmooviewer instances
