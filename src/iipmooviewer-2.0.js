@@ -1617,7 +1617,9 @@ var IIPMooViewer = new Class({
           length_units = length_px;
         }
 
-        this.showPopUp("Length: " + length_units + units);
+        length_units = Math.round(length_units * 100) / 100;
+
+        this.showPopUp("Length: " + length_units + " " + units);
       }
 
       this.line = {};
