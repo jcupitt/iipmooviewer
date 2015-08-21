@@ -72,7 +72,7 @@ ArghView.prototype.log = function (str, options) {
     var level = options.level || 2;
 
     // higher numbers mean more important messages  
-    var loggingLevel = 2;
+    var loggingLevel = 4;
 
     if (level >= loggingLevel) {
         console.log(str);
