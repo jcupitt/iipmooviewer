@@ -1,6 +1,1 @@
-^C adds light_x, light_y to URL
-
-how do we get these back from the url?
-
-test linking to a particular spot, seems a bit broken
-
+- detect click in annotation, move light source

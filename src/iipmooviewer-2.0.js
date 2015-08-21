@@ -141,23 +141,26 @@ var IIPMooViewer = new Class({
 
     this.scale = ((typeof(Scale)==="function")&&options.scale) ? new Scale(options.scale,options.units) : null;
 
-
     // Enable fullscreen mode? If false, then disable. Otherwise option can be "native" for HTML5
     // fullscreen API mode or "page" for standard web page fill page mode
     this.enableFullscreen = 'native';
-    if( typeof(options.enableFullscreen) != 'undefined' ){
-      if( options.enableFullscreen == false ) this.enableFullscreen = false;
-      if( options.enableFullscreen == 'page' ) this.enableFullscreen = 'page';
+    if (typeof(options.enableFullscreen) != 'undefined') {
+      if (options.enableFullscreen == false) {
+        this.enableFullscreen = false;
+      }
+      if (options.enableFullscreen == 'page') {
+        this.enableFullscreen = 'page';
+      }
     }
     this.fullscreen = null;
-    if( this.enableFullscreen != false ){
+    if (this.enableFullscreen != false) {
       this.fullscreen = {
         isFullscreen: false,
         targetsize: {},
         eventChangeName: null,
         enter: null,
         exit: null
-      }
+      };
     }
 
     // Disable the right click context menu on image tiles?
@@ -219,7 +222,7 @@ var IIPMooViewer = new Class({
     }
 
     // Set up our annotations if they have been set and our annotation functions implemented
-    this.annotations = ((typeof(this.initAnnotationTips)=="function")&&options.annotations)? options.annotations : null;
+    this.annotations = ((typeof(this.initAnnotationTips) == "function") && options.annotations) ? options.annotations : null;
 
     // If we want to assign a function for a click within the image
     // - used for multispectral curve visualization, for example
@@ -296,12 +299,13 @@ var IIPMooViewer = new Class({
     }
 
     // Create new annotations and attach the tooltip to them if it already exists
-    if( this.annotations ){
+    if (this.annotations) {
       this.drawAnnotations();
-      if( this.annotationTip ) this.annotationTip.attach( this.canvas.getChildren('div.annotation') );
+      if (this.annotationTip) {
+        this.annotationTip.attach(this.canvas.getChildren('div.annotation'));
+      }
     }
   },
-
 
   /* Get a URL for a screenshot of the current view region
    */
