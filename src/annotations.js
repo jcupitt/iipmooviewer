@@ -20,7 +20,6 @@
 
 */
 
-
 /* Extend IIPMooViewer to handle annotations
  */
 IIPMooViewer.implement({
@@ -127,6 +126,16 @@ IIPMooViewer.implement({
         event.stop();
 
         _this.editAnnotation(this);
+      });
+
+      annotation.addEvent('click', function (e) {
+        if (annotation_item.light_x != null && annotation_item.light_y != null) { 
+          var event = new DOMEvent(e);
+          event.stop();
+
+          _this.setLightPosition(annotation_item.light_x, annotation_item.light_y);
+          _this.arghView.draw();
+        }
       });
     }
 

@@ -546,8 +546,7 @@ var IIPMooViewer = new Class({
 
   /* Scroll from a drag event on the tile canvas
    */
-  scroll: function(e) {
-
+  scroll: function (e) {
     var pos = {};
 
     // Use style values directly as getPosition will take into account rotation
@@ -576,58 +575,64 @@ var IIPMooViewer = new Class({
 
     // Need to do the moveTo rather than just requestImages() to avoid problems with rotated views 
     this.moveTo( xmove, ymove );
-
-
   },
-
-
 
   /* Get view taking into account rotations
    */
-  getView: function() {
-
+  getView: function () {
     var x = this.view.x;
     var y = this.view.y;
     var w = this.view.w;
     var h = this.view.h;
 
     // Correct for 90,270 ... rotation
-    if( Math.abs(this.view.rotation%180) == 90 ){
-      x = Math.round( this.view.x + this.view.w/2 - this.view.h/2 );
-      y = Math.round( this.view.y + this.view.h/2 - this.view.w/2 );
-      if( x<0 ) x = 0;  // Make sure we don't have -ve values
-      if( y<0 ) y = 0;
+    if (Math.abs(this.view.rotation % 180) == 90) {
+      x = Math.round(this.view.x + this.view.w / 2 - this.view.h / 2);
+      y = Math.round(this.view.y + this.view.h / 2 - this.view.w / 2);
+   
+      // Make sure we don't have -ve values
+      if (x < 0) {
+        x = 0;
+      }
+      if (y < 0) {
+        y = 0;
+      }
+
       w = this.view.h;
       h = this.view.w;
     }
 
-    return { x: x, y: y, w: w, h: h };
+    return {x: x, y: y, w: w, h: h};
   },
-
-
 
   /* Check our scroll bounds.
    */
-  checkBounds: function( x, y ) {
+  checkBounds: function (x, y) {
+    if (x > this.wid - this.view.w) {
+      x = this.wid - this.view.w;
+    }
+    if (y > this.hei - this.view.h) {
+      y = this.hei - this.view.h;
+    }
 
-    if( x > this.wid-this.view.w ) x = this.wid - this.view.w;
-    if( y > this.hei-this.view.h ) y = this.hei - this.view.h;
-
-    if( x < 0 || this.wid < this.view.w ) x = 0;
-    if( y < 0 || this.hei < this.view.h ) y = 0;
+    if (x < 0 || this.wid < this.view.w) {
+      x = 0;
+    }
+    if (y < 0 || this.hei < this.view.h) {
+      y = 0;
+    }
 
     this.view.x = x;
     this.view.y = y;
   },
 
-
-
   /* Move to a particular position on the image
    */
-  moveTo: function( x, y ){
-
+  moveTo: function (x, y) {
     // To avoid unnecessary redrawing ...
-    if( x==this.view.x && y==this.view.y ) return;
+    if (x == this.view.x && y == this.view.y) {
+      return;
+    }
 
     this.checkBounds(x,y);
     this.positionCanvas();
@@ -635,60 +640,64 @@ var IIPMooViewer = new Class({
     this.updateNavigation();
   },
 
-    /* Set a light position. We need to record a copy of the position for ^C and 
-     * annotations.
-     */
-    setLightPosition: function (light_x, light_y) {
-        this.view.light_x = light_x;
-        this.view.light_y = light_y;
+  /* Set a light position. We need to record a copy of the position for ^C and 
+   * annotations.
+   */
+  setLightPosition: function (light_x, light_y) {
+    this.log("setLightPosition: " + light_x + ", " + light_y);
 
-        if (this.arghView) { 
-            this.arghView.setLightPosition(light_x, light_y);
-        }
-    },
+    this.view.light_x = light_x;
+    this.view.light_y = light_y;
 
+    if (this.arghView) { 
+      this.arghView.setLightPosition(light_x, light_y);
+    }
+  },
 
   /* Move to and center at a particular point
    */
-  centerTo: function( x, y ){
-    this.moveTo( Math.round(x*this.wid-(this.view.w/2)), Math.round(y*this.hei-(this.view.h/2)) );
+  centerTo: function (x, y) {
+    this.moveTo(
+        Math.round(x * this.wid - (this.view.w / 2)), 
+        Math.round(y * this.hei - (this.view.h / 2)));
   },
-
-
 
   /* Nudge the view by a small amount
    */
-  nudge: function( dx, dy ){
-
+  nudge: function (dx, dy) {
     var rdx = dx;
     var rdy = dy;
 
     // Adjust for rotated views. First make sure we have a positive value 0-360
     var rotation = this.view.rotation % 360;
-    if( rotation < 0 ) rotation += 360;
+    if (rotation < 0) {
+      rotation += 360;
+    }
 
-    if( rotation == 90 ){
+    if (rotation == 90) {
       rdy = -dx;
       rdx = dy;
     }
-    else if( rotation == 180 ){
+    else if (rotation == 180) {
       rdx = -dx;
       rdy = -dy;
     }
-    else if( rotation == 270 ){
+    else if (rotation == 270) {
       rdx = -dy;
       rdy = dx;
     }
 
     // Morph is buggy for rotated images, so only use for no rotation
     if( rotation == 0 ){
-      this.checkBounds(this.view.x+rdx,this.view.y+rdy);
+      this.checkBounds(this.view.x + rdx,this.view.y + rdy);
       this.canvas.morph({
-        left: (this.wid>this.view.w)? -this.view.x : Math.round((this.view.w-this.wid)/2),
-        top: (this.hei>this.view.h)? -this.view.y : Math.round((this.view.h-this.hei)/2)
+        left: (this.wid > this.view.w) ? -this.view.x : Math.round((this.view.w - this.wid) / 2),
+        top: (this.hei > this.view.h) ? -this.view.y : Math.round((this.view.h - this.hei) / 2)
       });
     }
-    else this.moveTo( this.view.x+rdx, this.view.y+rdy );
+    else {
+      this.moveTo(this.view.x + rdx, this.view.y + rdy);
+    }
 
     this.updateNavigation();
   },
