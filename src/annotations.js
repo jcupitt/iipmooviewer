@@ -20,14 +20,12 @@
 
 */
 
-
 /* Extend IIPMooViewer to handle annotations
  */
 IIPMooViewer.implement({
-
   /* Initialize canvas events for our annotations
    */
-  initAnnotationTips: function() {
+  initAnnotationTips: function () {
     this.annotationTip = null;
     this.annotationsVisible = true;
 
@@ -37,12 +35,12 @@ IIPMooViewer.implement({
     var _this = this;
 
     // Display / hide our annotations if we have any
-    this.canvas.addEvent('mouseenter', function() {
+    this.canvas.addEvent('mouseenter', function () {
       if (_this.annotationsVisible) {
         _this.canvas.getElements('div.annotation').removeClass('hidden');
       }
     });
-    this.canvas.addEvent('mouseleave', function() {
+    this.canvas.addEvent('mouseleave', function () {
       if (_this.annotationsVisible) {
         _this.canvas.getElements('div.annotation').addClass('hidden');
       }
@@ -51,30 +49,36 @@ IIPMooViewer.implement({
 
   /* Convert our annotation object into an array - we'll need this for sorting
    */
-  createAnnotationsArray: function() {
+  createAnnotationsArray: function () {
     var annotation_array = [];
 
-    Object.each(this.annotations, function(annotation, id){
-        annotation.id = id;
-        annotation_array.push( annotation );
+    Object.each(this.annotations, function (annotation, id) {
+      annotation.id = id;
+      annotation_array.push(annotation);
     });
 
-    // Sort our annotations by size to make sure it's always possible to interact
-    // with annotations within annotations.
-    annotation_array.sort( function(a,b){ return (b.w*b.h)-(a.w*a.h); } );
+    // sort our annotations by size to make sure it's always possible to interact
+    // with annotations within annotations
+    annotation_array.sort(
+      function (a, b) { 
+        return (b.w * b.h) - (a.w * a.h); 
+      } 
+    );
     this.annotation_array = annotation_array;
   },
 
   /* Create annotations if they are contained within our current view
    */
-  drawAnnotations: function() {
-
+  drawAnnotations: function () {
     // If there are no annotations, simply return
-    if( !this.annotations ) return;
-    var annotation_item, i = 0, l = this.annotation_array.length;
+    if (!this.annotations) {
+      return;
+    }
 
     // Now go through our sorted list and display those within the view
-    for( ; i < l; i++ ){
+    var annotation_item, i = 0, l = this.annotation_array.length;
+
+    for (; i < l; i++) {
       annotation_item = this.annotation_array[i];
 
       var position = {
@@ -91,46 +95,59 @@ IIPMooViewer.implement({
       else {
         this.initAnnotation(annotation_item, position);
       }
-
     }
 
     if( !this.annotationTip ){
       this.annotationTip = this.createAnnotationsTips();
     }
-
   },
 
-
-  initAnnotation: function(annotation_item, position) {
+  initAnnotation: function (annotation_item, position) {
     var cl = 'annotation';
-    if (annotation_item.category) cl += ' ' + annotation_item.category;
+    if (annotation_item.category) {
+      cl += ' ' + annotation_item.category;
+    }
 
     var annotation = new Element('div', {
-      'id': 'annotation-' + annotation_item.id,
-      'class': cl,
-      'styles': position
+      id: 'annotation-' + annotation_item.id,
+      class: cl,
+      styles: position
     }).inject(this.canvas);
-    if (!this.annotationsVisible) annotation.addClass('hidden');
-
+    if (!this.annotationsVisible) {
+      annotation.addClass('hidden');
+    }
 
     // Add edit events to annotations if we have included the functions
     if (typeof(this.editAnnotation) == "function") {
       var _this = this;
-      annotation.addEvent('dblclick', function(e) {
+
+      annotation.addEvent('dblclick', function (e) {
         var event = new DOMEvent(e);
         event.stop();
+
         _this.editAnnotation(this);
+      });
+
+      annotation.addEvent('click', function (e) {
+        if (annotation_item.light_x != null && annotation_item.light_y != null) { 
+          var event = new DOMEvent(e);
+          event.stop();
+
+          _this.setLightPosition(annotation_item.light_x, annotation_item.light_y);
+          _this.arghView.draw();
+        }
       });
     }
 
     // Add our annotation text
     var text = annotation_item.text;
-    if (annotation_item.title) text = '<h1>' + annotation_item.title + '</h1>' + text;
+    if (annotation_item.title) {
+      text = '<h1>' + annotation_item.title + '</h1>' + text;
+    }
     annotation.store('tip:text', text);
   },
 
-
-  createAnnotationsTips: function() {
+  createAnnotationsTips: function () {
     return new Tips('div.annotation', {
       className: 'tip', // We need this to force the tip in front of nav window
       fixed: true,
@@ -140,7 +157,7 @@ IIPMooViewer.implement({
       },
       hideDelay: 300,
       link: 'chain',
-      onShow: function(tip, el) {
+      onShow: function (tip, el) {
         // Fade from our current opacity to 0.9
         tip.setStyles({
           opacity: tip.getStyle('opacity'),
@@ -150,20 +167,20 @@ IIPMooViewer.implement({
         // Prevent the tip from fading when we are hovering on the tip itself and not
         // just when we leave the annotated zone
         tip.addEvents({
-          'mouseleave': function() {
+          'mouseleave': function () {
             this.active = false;
             this.fade('out').get('tween').chain(function() {
               this.element.setStyle('display', 'none');
             });
           },
-          'mouseenter': function() {
+          'mouseenter': function () {
             this.active = true;
           }
         });
       },
-      onHide: function(tip, el) {
+      onHide: function (tip, el) {
         if (!tip.active) {
-          tip.fade('out').get('tween').chain(function() {
+          tip.fade('out').get('tween').chain(function () {
             this.element.setStyle('display', 'none');
           });
           tip.removeEvents(['mouseenter', 'mouseleave']);
@@ -172,34 +189,33 @@ IIPMooViewer.implement({
     });
   },
 
-
   /* Toggle visibility of any annotations
    */
   toggleAnnotations: function() {
     var els = this.canvas.getElements('div.annotation');
-    if( els ){
-      if( this.annotationsVisible ){
-	els.addClass('hidden');
-	this.annotationsVisible = false;
-	this.showPopUp( IIPMooViewer.lang.annotationsDisabled );
+    if (els) {
+      if (this.annotationsVisible) {
+        els.addClass('hidden');
+        this.annotationsVisible = false;
+        this.showPopUp(IIPMooViewer.lang.annotationsDisabled);
       }
-      else{
-	els.removeClass('hidden');
-	this.annotationsVisible = true;
+      else {
+        els.removeClass('hidden');
+        this.annotationsVisible = true;
       }
     }
   },
 
-
   /* Destroy our annotations
    */
-  destroyAnnotations: function() {
-    if( this.annotationTip ) this.annotationTip.detach( this.canvas.getChildren('div.annotation') );
-    this.canvas.getChildren('div.annotation').each(function(el){
+  destroyAnnotations: function () {
+    if (this.annotationTip) {
+      this.annotationTip.detach(this.canvas.getChildren('div.annotation'));
+    }
+
+    this.canvas.getChildren('div.annotation').each(function (el) {
       el.eliminate('tip:text');
       el.destroy();
     });
   }
-
-
 });

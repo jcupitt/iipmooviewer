@@ -51,16 +51,16 @@ var Navigation = new Class({
     this.navcontainer = new Element( 'div',{
       'class': 'navcontainer',
       'styles': {
-	width: this.size.x,
-	position: (this.standalone) ? 'static' : 'absolute' }
+        width: this.size.x,
+        position: (this.standalone) ? 'static' : 'absolute' }
     });
 
     if(!this.standalone) {
       var toolbar = new Element( 'div', {
         'class': 'toolbar',
         'events': {
-	   dblclick: function(source){
-	     source.getElement('div.navbuttons').get('slide').toggle();
+           dblclick: function(source){
+             source.getElement('div.navbuttons').get('slide').toggle();
            }.pass(container)
         }
       });
@@ -73,17 +73,17 @@ var Navigation = new Class({
     if( this.options.showNavWindow ){
 
       var navwin = new Element( 'div', {
-	'class': 'navwin',
-        'styles': { height: this.size.y	}
+        'class': 'navwin',
+        'styles': { height: this.size.y }
       });
       navwin.inject( this.navcontainer );
 
 
       // Create our navigation image and inject inside the div we just created
       var navimage = new Element( 'img', {
-	'class': 'navimage',
+        'class': 'navimage',
         'events': {
-	  'click': this.scroll.bind(this),
+          'click': this.scroll.bind(this),
           'mousewheel:throttle(75)': function(e){ _this.fireEvent('zoom',e); },
           // Prevent user from dragging navigation image
           'mousedown': function(e){ var event = new DOMEvent(e); event.stop(); }
@@ -91,37 +91,41 @@ var Navigation = new Class({
       });
       navimage.inject(navwin);
 
+      navimage.addEvent('mousedown', function (e) { e.stop(); });
+
 
       // Create our navigation zone and inject inside the navigation div
       this.zone = new Element( 'div', {
         'class': 'zone',
         'morph': {
-	  duration: 500,
-	  transition: Fx.Transitions.Quad.easeInOut
+          duration: 500,
+          transition: Fx.Transitions.Quad.easeInOut
         },
-	'events': {
- 	  'mousewheel:throttle(75)': function(e){ _this.fireEvent('zoom',e); },
- 	  'dblclick': function(e){ _this.fireEvent('zoom',e); }
-	},
-	'styles': {
-	  width: 0, height: 0
+        'events': {
+          'mousewheel:throttle(75)': function(e){ _this.fireEvent('zoom',e); },
+          'dblclick': function(e){ _this.fireEvent('zoom',e); }
+        },
+        'styles': {
+          width: 0, height: 0
         }
       });
       this.zone.inject(navwin);
 
+      this.zone.addEvent('mousedown', function (e) { e.stop(); });
+
       if( this.options.showCoords ){
-	// Create our coordinates viewer
-	this.coords = new Element('div', {
-	  'class': 'coords',
+        // Create our coordinates viewer
+        this.coords = new Element('div', {
+          'class': 'coords',
           'html': '<div></div>',
           'styles': {
-	    top: this.size.y - 6,
-	    opacity: 0.8
+            top: this.size.y - 6,
+            opacity: 0.8
            },
            'tween': {
              duration: 1000,
              transition: Fx.Transitions.Sine.easeOut,
-	     link: 'cancel'
+             link: 'cancel'
            }
         });
         this.coords.inject(this.navcontainer);
@@ -133,30 +137,29 @@ var Navigation = new Class({
     if( this.options.showNavButtons ){
 
       var navbuttons = new Element('div', {
-	'class': 'navbuttons'
+        'class': 'navbuttons'
       });
 
       // Create our buttons as SVG with fallback to PNG
       var prefix = this.prefix;
       this.options.navButtons.each( function(k){
-	new Element('img',{
-	  'src': prefix + k + (Browser.buggy?'.png':'.svg'),
-	  'class': k,
- 	  'events':{
-	    'error': function(){
-	      this.removeEvents('error'); // Prevent infinite reloading
-	      this.src = this.src.replace('.svg','.png'); // PNG fallback
-	    }
-	  }
-	}).inject(navbuttons);
+        new Element('img',{
+          'src': prefix + k + (Browser.buggy?'.png':'.svg'),
+          'class': k,
+          'events':{
+            'error': function(){
+              this.removeEvents('error'); // Prevent infinite reloading
+              this.src = this.src.replace('.svg','.png'); // PNG fallback
+            }
+          }
+        }).inject(navbuttons);
       });
       navbuttons.inject(this.navcontainer);
 
       // Need to set this after injection
       navbuttons.set('slide', {duration: 300, transition: Fx.Transitions.Quad.easeInOut, mode:'vertical'});
 
-        var _this = this;
-
+      var _this = this;
 
       // Add events to our buttons
       if(this.options.navButtons.contains('reset')) navbuttons.getElement('img.reset').addEvent( 'click', function(){ _this.fireEvent('reload'); });
@@ -165,6 +168,10 @@ var Navigation = new Class({
       if(this.options.navButtons.contains('rotateLeft')) navbuttons.getElement('img.rotateLeft').addEvent( 'click', function(){ _this.fireEvent('rotate',-90); });
       if(this.options.navButtons.contains('rotateRight')) navbuttons.getElement('img.rotateRight').addEvent( 'click', function(){ _this.fireEvent('rotate',90); });
       if(this.options.navButtons.contains('addAnnotation')) navbuttons.getElement('img.addAnnotation').addEvent( 'click', function(){ _this.fireEvent('addAnnotation'); });
+
+      // we want to stop mousedown on the buttons reaching our parent .. it can 
+      // trigger actions like light movement
+      navbuttons.addEvent('mousedown', function (e) { e.stop(); });
     }
 
     // add our set of tool buttons ... only one can be active, the name of
@@ -191,7 +198,7 @@ var Navigation = new Class({
                         this.setTool(!this.on); 
                     }
                 }
-	        });
+                });
 
             element.name = name;
             element.toolbar = toolbuttons;
@@ -223,7 +230,7 @@ var Navigation = new Class({
             element.setTool(false);
 
             element.inject(toolbuttons);
-	    });
+            });
 
         toolbuttons.inject(navbuttons);
 
@@ -235,40 +242,21 @@ var Navigation = new Class({
         });
     }
 
-    // Add a progress bar only if we have the navigation window visible
-    if( this.options.showNavWindow ){
-
-      // Create our progress bar
-      var loadBarContainer = new Element('div', {
-	'class': 'loadBarContainer',
-        'html': '<div class="loadBar"></div>',
-        'styles': { width: this.size.x - 2 },
-         'tween': {
-           duration: 1000,
-           transition: Fx.Transitions.Sine.easeOut,
-	   link: 'cancel'
-         }
-      });
-      loadBarContainer.inject(this.navcontainer);
-
-    }
-
-
     // Inject our navigation container into our holding div
     this.navcontainer.inject(container);
 
 
     if( this.options.showNavWindow ){
       this.zone.makeDraggable({
-	container: this.navcontainer.getElement('div.navwin'),
-          // Take a note of the starting coords of our drag zone
-          onStart: function() {
-	    var pos = _this.zone.getPosition();
-	    _this.position = {x: pos.x, y: pos.y-10};
-	    _this.zone.get('morph').cancel();
-	  },
-	  onComplete: this.scroll.bind(this)
-        });
+        container: this.navcontainer.getElement('div.navwin'),
+        // Take a note of the starting coords of our drag zone
+        onStart: function() {
+          var pos = _this.zone.getPosition();
+          _this.position = {x: pos.x, y: pos.y-10};
+          _this.zone.get('morph').cancel();
+        },
+        onComplete: this.scroll.bind(this)
+      });
     }
 
     if(!this.standalone) this.navcontainer.makeDraggable( {container:container, handle:toolbar} );
@@ -284,38 +272,6 @@ var Navigation = new Class({
     if( this.navcontainer ){
       this.navcontainer.get('reveal').toggle();
     }
-  },
-
-
-  /* Update the tile download progress bar
-   */
-  refreshLoadBar: function( nTilesLoaded, nTilesToLoad ) {
-
-    if( !this.options.showNavWindow ) return;
-
-    // Update the loaded tiles number, grow the loadbar size
-    var w = (nTilesLoaded / nTilesToLoad) * this.size.x;
-
-    var loadBarContainer = this.navcontainer.getElement('div.loadBarContainer');
-    var loadBar = loadBarContainer.getElement('div.loadBar');
-    loadBar.setStyle( 'width', w );
-
-    // Display the % in the progress bar
-    loadBar.set( 'html', IIPMooViewer.lang.loading + '&nbsp;:&nbsp;' + Math.round(nTilesLoaded/nTilesToLoad*100) + '%' );
-
-    if( loadBarContainer.style.opacity != '0.85' ){
-      loadBarContainer.setStyles({
-	visibility: 'visible',
-	opacity: 0.85
-      });
-    }
-
-    // If we're done with loading, fade out the load bar
-    if( nTilesLoaded >= nTilesToLoad ){
-      // Fade out our progress bar and loading animation in a chain
-      loadBarContainer.fade('out');
-    }
-
   },
 
 
