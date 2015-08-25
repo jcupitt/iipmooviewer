@@ -67,6 +67,17 @@
 */
 
 
+/* Our own tweening class for animating changes to arghView ... we need to be
+ * able to call (for example) arghview.setAngle() with a series of smooth
+ * changes.
+ */
+var IIPJSTween = new Class({
+  Extends: Fx,
+  initialize: function (set, options) {
+    this.parent(options);
+    this.set = set;
+  }
+});
 
 /* Main IIPMooViewer Class
  */
@@ -239,7 +250,8 @@ var IIPMooViewer = new Class({
       w: this.wid,
       h: this.hei,
       res: 0,                 // Current resolution
-      rotation: 0,            // Current rotational orientation
+      rotation: 0,            // Current rotational orientation, can be -ve, can be >360
+      rotation_normalized: 0, // Current rotational orientation, in 0 - 359
       light_x: 0,             // Current light position
       light_y: 0
     };
@@ -272,28 +284,29 @@ var IIPMooViewer = new Class({
   /* Create the appropriate CGI strings and change the image sources
    */
   requestImages: function () {
-
     // Set our rotation origin - calculate differently if canvas is smaller than view port
-    
-    if( !Browser.buggy ){
+    if (!Browser.buggy) {
       var view = this.getView();
       var wid = this.wid;
       var hei = this.hei;
+
       // Adjust width and height if we have a 90 or -90 rotation
-      if( Math.abs(this.view.rotation % 180) == 90 ){
+      if (this.view.rotation_normalized % 180 == 90) {
         wid = this.hei;
         hei = this.wid;
       }
+
       var origin_x = this.wid > this.view.w ? 
-          Math.round(this.view.x + this.view.w / 2) : 
-          Math.round(this.wid / 2);
+        Math.round(this.view.x + this.view.w / 2) : 
+        Math.round(this.wid / 2);
       var origin_y = this.hei > this.view.h ? 
-          Math.round(this.view.y + this.view.h / 2) : 
-          Math.round(this.hei / 2);
+        Math.round(this.view.y + this.view.h / 2) : 
+        Math.round(this.hei / 2);
       var origin = origin_x + "px " + origin_y + "px";
-      this.canvas.setStyle( this.CSSprefix+'transform-origin', origin );
+      this.canvas.setStyle(this.CSSprefix+'transform-origin', origin);
 
       this.arghView.setLayer(this.view.res);
+      this.log("requestImages: x = " + this.view.x + ", y = " + this.view.y);
       this.arghView.setPosition(this.view.x, this.view.y);
       this.arghView.fetch();
     }
@@ -373,13 +386,14 @@ var IIPMooViewer = new Class({
           ( !this.navOptions.buttons.contains('rotateLeft') &&
             !this.navOptions.buttons.contains('rotateRight') ) ) break;
       event.preventDefault();
-      if(!e.control){
-        var r = this.view.rotation;
-        if(e.shift) r -= 90 % 360;
-        else r += 90 % 360;
+      if (!e.control) {
+        var r = this.view.rotation + e.shift ? -90 : 90;
 
-        this.rotate( r );
-        if( IIPMooViewer.sync ) IIPMooViewer.windows(this).invoke( 'rotate', r );
+        this.rotate(r);
+
+        if (IIPMooViewer.sync) {
+          IIPMooViewer.windows(this).invoke('rotate', r );
+        }
       }
       break;
     case 65: // a
@@ -405,27 +419,53 @@ var IIPMooViewer = new Class({
     default:
       break;
     }
-
   },
-
 
   /* Rotate our view
    */
-  rotate: function( r ){
+  rotate: function (r) {
+    var _this = this;
+
+    this.log("rotate: r = " + r);
 
     // Rotation works in Firefox 3.5+, Chrome, Safari and IE9+
-    if( Browser.buggy ) return;
+    if (Browser.buggy) {
+      return;
+    }
+
+    if (this.rotationTween) {
+      this.rotationTween.cancel();
+      this.rotationTween = null;
+    }
+
+    this.rotationTween = new IIPJSTween(
+      function (value) {
+        _this.arghView.setAngle(-value);
+        _this.arghView.setLightPosition(_this.view.light_x, _this.view.light_y);
+        _this.arghView.draw();
+      },
+      {
+        duration: 'long'
+      }
+    );
+    this.rotationTween.start(this.view.rotation, r);
 
     this.view.rotation = r;
+
+    if (this.view.rotation > 0) {
+      this.view.rotation_normalized = this.view.rotation % 360;
+    }
+    else {
+      this.view.rotation_normalized = 360 - (-this.view.rotation % 360);
+    }
+
     var angle = 'rotate(' + r + 'deg)';
-    this.canvas.setStyle( this.CSSprefix+'transform', angle );
+    this.canvas.setStyle(this.CSSprefix+'transform', angle);
 
     this.constrain();
     this.requestImages();
     this.updateNavigation();
-
   },
-
 
   /* Toggle fullscreen
    */
@@ -514,8 +554,7 @@ var IIPMooViewer = new Class({
 
   /* Scroll resulting from a drag of the navigation window
    */
-  scrollNavigation: function( e ) {
-
+  scrollNavigation: function (e) {
     // Cancel any running morphs on the canvas
     this.canvas.get('morph').cancel();
 
@@ -523,25 +562,26 @@ var IIPMooViewer = new Class({
     var ymove = Math.round(e.y * this.hei);
 
     // Only morph transition if we have moved a short distance and our rotation is zero
-    var morphable = Math.abs(xmove-this.view.x)<this.view.w/2 && Math.abs(ymove-this.view.y)<this.view.h/2 && this.view.rotation==0;
+    var morphable = Math.abs(xmove - this.view.x) < this.view.w / 2 && Math.abs(ymove - this.view.y) < this.view.h / 2 && this.view.rotation_normalized == 0;
 
     this.view.x = xmove;
     this.view.y = ymove;
 
-    if( morphable ){
+    if (morphable) {
       this.canvas.morph({
-        left: (this.wid>this.view.w)? -xmove : Math.round((this.view.w-this.wid)/2),
-        top: (this.hei>this.view.h)? -ymove : Math.round((this.view.h-this.hei)/2)
+        left: (this.wid > this.view.w) ? -xmove : Math.round((this.view.w - this.wid) / 2),
+        top: (this.hei > this.view.h) ? -ymove : Math.round((this.view.h - this.hei) / 2)
       });
     }
-    else{
+    else {
       this.positionCanvas();
       // The morph event automatically calls requestImages
       this.requestImages();      
     }
 
-    if(IIPMooViewer.sync) IIPMooViewer.windows(this).invoke( 'moveTo', xmove, ymove );
-
+    if (IIPMooViewer.sync) {
+      IIPMooViewer.windows(this).invoke('moveTo', xmove, ymove);
+    }
   },
 
   /* Scroll from a drag event on the tile canvas
@@ -553,28 +593,24 @@ var IIPMooViewer = new Class({
     pos.x = this.canvas.getStyle('left').toInt();
     pos.y = this.canvas.getStyle('top').toInt();
 
-    var xmove =  -pos.x;
-    var ymove =  -pos.y;
+    var xmove = -pos.x;
+    var ymove = -pos.y;
 
-    // Adjust for rotated views. First make sure we have a positive value 0-360
-    var rotation = this.view.rotation % 360;
-    if( rotation < 0 ) rotation += 360;
-
-    if( rotation == 90 ){
+    if (this.view.rotation_normalized == 90) {
       xmove = this.view.x - (this.view.y + pos.y);
       ymove = this.view.y + (this.view.x + pos.x);
     }
-    else if( rotation == 180 ){
+    else if (this.view.rotation_normalized == 180) {
       xmove = this.view.x + (this.view.x + pos.x);
       ymove = this.view.y + (this.view.y + pos.y);
     }
-    else if( rotation == 270 ){
+    else if (this.view.rotation_normalized == 270) {
       xmove = this.view.x + (this.view.y + pos.y);
       ymove = this.view.y - (this.view.x + pos.x);
     }
 
     // Need to do the moveTo rather than just requestImages() to avoid problems with rotated views 
-    this.moveTo( xmove, ymove );
+    this.moveTo(xmove, ymove);
   },
 
   /* Get view taking into account rotations
@@ -585,8 +621,8 @@ var IIPMooViewer = new Class({
     var w = this.view.w;
     var h = this.view.h;
 
-    // Correct for 90,270 ... rotation
-    if (Math.abs(this.view.rotation % 180) == 90) {
+    // Correct for 90, 270 ... rotation
+    if (this.view.rotation_normalized % 180 == 90) {
       x = Math.round(this.view.x + this.view.w / 2 - this.view.h / 2);
       y = Math.round(this.view.y + this.view.h / 2 - this.view.w / 2);
    
@@ -668,27 +704,21 @@ var IIPMooViewer = new Class({
     var rdx = dx;
     var rdy = dy;
 
-    // Adjust for rotated views. First make sure we have a positive value 0-360
-    var rotation = this.view.rotation % 360;
-    if (rotation < 0) {
-      rotation += 360;
-    }
-
-    if (rotation == 90) {
+    if (this.view.rotation_normalized == 90) {
       rdy = -dx;
       rdx = dy;
     }
-    else if (rotation == 180) {
+    else if (this.view.rotation_normalized == 180) {
       rdx = -dx;
       rdy = -dy;
     }
-    else if (rotation == 270) {
+    else if (this.view.rotation_normalized == 270) {
       rdx = -dy;
       rdy = dx;
     }
 
     // Morph is buggy for rotated images, so only use for no rotation
-    if( rotation == 0 ){
+    if (this.view.rotation_normalized == 0) {
       this.checkBounds(this.view.x + rdx,this.view.y + rdy);
       this.canvas.morph({
         left: (this.wid > this.view.w) ? -this.view.x : Math.round((this.view.w - this.wid) / 2),
@@ -815,8 +845,8 @@ var IIPMooViewer = new Class({
         yoffset = -this.view.h*(1-factor)/2;;
       }
 
-      this.view.x = Math.round( factor*this.view.x + xoffset );
-      this.view.y = Math.round( factor*this.view.y + yoffset );
+      this.view.x = Math.round(factor * this.view.x + xoffset);
+      this.view.y = Math.round(factor * this.view.y + yoffset);
 
       this.view.res = r;
 
@@ -1157,38 +1187,47 @@ var IIPMooViewer = new Class({
 
     // Calculate some sizes and create the navigation window
     this.calculateSizes();
-    if( this.navigation){
-
-      if( this.navOptions&&this.navOptions.id&&document.id(this.navOptions.id) ){
-        this.navigation.create( document.id(this.navOptions.id) );
+    if (this.navigation) {
+      if (this.navOptions && this.navOptions.id && document.id(this.navOptions.id)) {
+        this.navigation.create(document.id(this.navOptions.id));
       }
-      else this.navigation.create( this.container );
+      else {
+        this.navigation.create(this.container);
+      }
 
       this.navigation.setImage(this.protocol.getThumbnailURL(this.server,this.images[0].src,this.navigation.size.x));
       this.navigation.addEvents({
-       'rotate': function(r){
-        var rotation = _this.view.rotation+r;
+        rotate: function (r) {
+          var rotation = _this.view.rotation + r;
           _this.rotate(rotation);
-          if( IIPMooViewer.sync ) IIPMooViewer.windows(_this).invoke( 'rotate', rotation );
+          if (IIPMooViewer.sync) {
+            IIPMooViewer.windows(_this).invoke('rotate', rotation);
+          }
         },
-        'zoomIn': function(){
+        zoomIn: function () {
           _this.zoomIn();
-          if( IIPMooViewer.sync ) IIPMooViewer.windows(_this).invoke( 'zoomIn' );
+          if (IIPMooViewer.sync) {
+            IIPMooViewer.windows(_this).invoke('zoomIn');
+          }
         },
-        'zoomOut': function(){
+        zoomOut: function () {
           _this.zoomOut();
-          if( IIPMooViewer.sync ) IIPMooViewer.windows(_this).invoke( 'zoomOut' );
+          if (IIPMooViewer.sync) {
+            IIPMooViewer.windows(_this).invoke('zoomOut');
+          }
         },
-        'reload': function(){
+        reload: function () {
           _this.reload();
-          if( IIPMooViewer.sync ) IIPMooViewer.windows(_this).invoke( 'reload' );
+          if (IIPMooViewer.sync) {
+            IIPMooViewer.windows(_this).invoke('reload');
+          }
         },
-        'scroll': this.scrollNavigation.bind(this),
-        'addAnnotation': function(){
+        scroll: this.scrollNavigation.bind(this),
+        addAnnotation: function () {
           _this.newAnnotation();
         },
-        'zoom': this.zoom.bind(this)
-     });
+        zoom: this.zoom.bind(this)
+      });
     }
 
     // Add tips if we are not on a mobile device

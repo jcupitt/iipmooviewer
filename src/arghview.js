@@ -3,9 +3,9 @@
  *
  * TODO:
  *
- * - support rotate
- * - need methods to translate between clientX/Y coordinates and image cods?
- * - could support morph animations?
+ * - add smooth zoom
+ * - we loop over the screen drawing all visible tiles ... we should take the
+ *   angle into account
  */
 
 'use strict';
@@ -40,7 +40,14 @@ var ArghView = function (canvas) {
     this.viewportLeft = 0;
     this.viewportTop = 0;
 
-    // then each +1 is a x2 layer larger
+    // the angle we display at in degrees ... 0 is 'normal', we rotate about the
+    // centre of the viewport, +ve is anticlockwise
+    //
+    // we support any angle, since we animate rotation changes, but this
+    // will normally be 0, 90, 180, 270
+    this.angle = 0;
+
+    // each +1 is a x2 layer larger
     this.layer = 0;
 
     // this gets populated once we know the tile source, see below
@@ -72,7 +79,7 @@ ArghView.prototype.log = function (str, options) {
     var level = options.level || 2;
 
     // higher numbers mean more important messages  
-    var loggingLevel = 4;
+    var loggingLevel = 2;
 
     if (level >= loggingLevel) {
         console.log(str);
@@ -410,15 +417,33 @@ ArghView.prototype.getLayer = function () {
     return this.layer;
 };
 
-/* Public: set the position of the viewport within the larger image.
+/* Public: set the position of the viewport within the larger image. The
+ * coordinates are in image space, ie. we need to rotate to see how they affect
+ * the screen.
  *
  * If we are zoomed out far enough that the image is smaller than the viewport,
  * centre the image.
  */
-ArghView.prototype.setPosition = function (viewportLeft, viewportTop) {
-    this.log("ArghView.setPosition: " + viewportLeft + ", " + viewportTop);
+ArghView.prototype.setPosition = function (x, y) {
+    this.log("ArghView.setPosition: x = " + x + ", y = " + y);
 
     this.time += 1;
+
+    // rotate about the centre of the viewport
+    x += this.viewportWidth / 2;
+    y += this.viewportHeight / 2;
+
+    var angle = 2 * Math.PI * this.angle / 360;
+    var a = Math.cos(angle);
+    var b = -Math.sin(angle);
+    var c = -b;
+    var d = a;
+
+    var x2 = x * a + y * b;
+    var y2 = x * c + y * d;
+
+    x = x2 - this.viewportWidth / 2;
+    y = y2 - this.viewportHeight / 2;
 
     var layerWidth = this.layerProperties[this.layer].width;
     var layerHeight = this.layerProperties[this.layer].height;
@@ -427,24 +452,24 @@ ArghView.prototype.setPosition = function (viewportLeft, viewportTop) {
             layerWidth + ", " + layerHeight + ")");
 
     // constrain to viewport
-    viewportLeft = Math.max(viewportLeft, 0);
-    viewportLeft = Math.min(viewportLeft, layerWidth - this.viewportWidth); 
-    viewportTop = Math.max(viewportTop, 0);
-    viewportTop = Math.min(viewportTop, layerHeight - this.viewportHeight); 
+    x = Math.max(x, 0);
+    x = Math.min(x, layerWidth - this.viewportWidth); 
+    y = Math.max(y, 0);
+    y = Math.min(y, layerHeight - this.viewportHeight); 
 
     // if image < viewport, force centre
     if (layerWidth < this.viewportWidth) {
-        viewportLeft = -(this.viewportWidth - layerWidth) / 2;
+        x = -(this.viewportWidth - layerWidth) / 2;
     }
     if (layerHeight < this.viewportHeight) {
-        viewportTop = -(this.viewportHeight - layerHeight) / 2;
+        y = -(this.viewportHeight - layerHeight) / 2;
     }
 
-    this.log("  (position set to " + 
-            viewportLeft + ", " + viewportTop + ")");
+    this.log("  (position set to x = " + 
+            x + ", y = " + y + ")");
 
-    this.viewportLeft = viewportLeft;
-    this.viewportTop = viewportTop;
+    this.viewportLeft = x;
+    this.viewportTop = y;
 };
 
 /* Public ... light position in [-1, 1] ... compute the lighting function.
@@ -464,6 +489,7 @@ ArghView.prototype.setLightPosition = function (x, y) {
     else {
         alpha = Math.PI / 2;
     }
+    alpha += 2 * Math.PI * this.angle / 360;
 
     var ix = norm * Math.cos(alpha);
     var iy = norm * Math.sin(alpha);
@@ -495,6 +521,13 @@ ArghView.prototype.setLines = function (lines) {
     this.lines = lines;
 }
 
+/* Public ... set the rotation angle. In degrees, positive values are
+ * anticlockwise. 
+ */
+ArghView.prototype.setAngle = function (angle) {
+    this.angle = angle;
+}
+
 /* Transform from screen coordinates to image coordinates. Screen cods are the
  * things we get from eg. event.clientX. Image cods are coordinates in the
  * image we are displaying, in terms of the highest-res image layer. 
@@ -502,6 +535,22 @@ ArghView.prototype.setLines = function (lines) {
 ArghView.prototype.screen2image = function (point) {
     var x = point[0];
     var y = point[1];
+
+    // rotate about the centre of the viewport
+    x -= this.viewportWidth / 2;
+    y -= this.viewportHeight / 2;
+
+    var angle = 2 * Math.PI * this.angle / 360;
+    var a = Math.cos(angle);
+    var b = -Math.sin(angle);
+    var c = -b;
+    var d = a;
+
+    var x2 = x * a + y * b;
+    var y2 = x * c + y * d;
+
+    x = x2 + this.viewportWidth / 2;
+    y = y2 + this.viewportHeight / 2;
 
     var scale = this.maxSize.w / this.layerProperties[this.layer].width;
 
@@ -527,6 +576,11 @@ ArghView.prototype.tileDraw = function (tile, tileSize) {
         ", w = " + tileSize.w + ", h = " + tileSize.h, {level: 1});
 
     this.mvPushMatrix();
+
+    // we rotate about the centre of the screen
+    mat4.translate(this.mvMatrix, [this.viewportWidth / 2, this.viewportHeight / 2, 0]);
+    mat4.rotate(this.mvMatrix, 2 * Math.PI * this.angle / 360, [0, 0, 1]);
+    mat4.translate(this.mvMatrix, [-this.viewportWidth / 2, -this.viewportHeight / 2, 0]);
 
     mat4.translate(this.mvMatrix, 
         [x, this.viewportHeight - y - tileSize.h, 0]); 
@@ -590,6 +644,11 @@ ArghView.prototype.lineDraw = function (line) {
     var dy = y2 - y1;
     var length = Math.sqrt(dx * dx + dy * dy);
     var angle = Math.atan2(dy, dx);
+
+    // we rotate about the centre of the screen
+    mat4.translate(this.mvMatrix, [this.viewportWidth / 2, this.viewportHeight / 2, 0]);
+    mat4.rotate(this.mvMatrix, 2 * Math.PI * this.angle / 360, [0, 0, 1]);
+    mat4.translate(this.mvMatrix, [-this.viewportWidth / 2, -this.viewportHeight / 2, 0]);
 
     mat4.translate(this.mvMatrix, [x1, y1, 0]); 
     mat4.scale(this.mvMatrix, [length, length, 1]);
