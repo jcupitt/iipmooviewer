@@ -1,0 +1,10 @@
+- drag while rotated is not working
+
+	we need to sort out what the coordinates given to setPosition mean,
+	and how they are affected by rotation
+
+	this will feed into smooth scaling too: generally, how do we
+	transform to image space from screen space
+
+- doubleclick in nav tool trickes down into viewer and causes a zoom
+
