@@ -1,3 +1,9 @@
+- arghview rewrite
+
+  reached setPosition
+
+
+
 - drag while rotated is not working
 
 	we need to sort out what the coordinates given to setPosition mean,
@@ -7,4 +13,7 @@
 	transform to image space from screen space
 
 - doubleclick in nav tool trickes down into viewer and causes a zoom
+
+- screen2image / image2screen could be much faster
+
 

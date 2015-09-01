@@ -322,11 +322,12 @@ var IIPMooViewer = new Class({
 
   /* Get a URL for a screenshot of the current view region
    */
-  getRegionURL: function(){
+  getRegionURL: function () {
     var w = this.resolutions[this.view.res].w;
     var h = this.resolutions[this.view.res].h;
     var region = {x: this.view.x/w, y: this.view.y/h, w: this.view.w/w, h: this.view.h/h};
-    var url = this.protocol.getRegionURL( this.server, this.images[0].src, region, w );
+    var url = this.protocol.getRegionURL(this.server, this.images[0].src, region, w);
+
     return url;
   },
 
