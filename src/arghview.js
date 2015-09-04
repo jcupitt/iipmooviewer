@@ -123,8 +123,8 @@ ArghView.prototype.screen2layer = function (point) {
     var c = -b;
     var d = a;
 
-    var x2 = x * a + y * b;
-    var y2 = x * c + y * d;
+    var x2 = a * x + b * y;
+    var y2 = c * x + d * y;
 
     x = x2 + this.viewportWidth / 2;
     y = y2 + this.viewportHeight / 2;
@@ -134,6 +134,36 @@ ArghView.prototype.screen2layer = function (point) {
 
     x += this.layerLeft;
     y += this.layerTop;
+
+    return [x, y];
+}
+
+/* Public ... transform from layer coordinates to screen coordinates, see above.
+ */
+ArghView.prototype.layer2screen = function (point) {
+    var x = point[0];
+    var y = point[1];
+
+    x -= this.layerLeft;
+    y -= this.layerTop;
+
+    x /= this.scale;
+    y /= this.scale;
+
+    x -= this.viewportWidth / 2;
+    y -= this.viewportHeight / 2;
+
+    var angle = 2 * Math.PI * -this.angle / 360;
+    var a = Math.cos(angle);
+    var b = -Math.sin(angle);
+    var c = -b;
+    var d = a;
+
+    var x2 = a * x + b * y;
+    var y2 = c * x + d * y;
+
+    x = x2 + this.viewportWidth / 2;
+    y = y2 + this.viewportHeight / 2;
 
     return [x, y];
 }
@@ -158,42 +188,12 @@ ArghView.prototype.transformRect = function (fn, rect) {
     var bottom = p1[0][1];
     for (var i = 0; i < p1.length; i++) {
         left = Math.min(left, p1[i][0]);
-        top = Math.min(left, p1[i][1]);
-        right = Math.max(left, p1[i][0]);
-        bottom = Math.max(left, p1[i][1]);
+        top = Math.min(top, p1[i][1]);
+        right = Math.max(right, p1[i][0]);
+        bottom = Math.max(bottom, p1[i][1]);
     }
 
     return {x: left, y: top, w: right - left, h: bottom - top}; 
-}
-
-/* Public ... transform from layer coordinates to screen coordinates, see above.
- */
-ArghView.prototype.layer2screen = function (point) {
-    var x = point[0];
-    var y = point[1];
-
-    x -= this.layerLeft;
-    y -= this.layerTop;
-
-    x /= this.scale;
-    y /= this.scale;
-
-    x -= this.viewportWidth / 2;
-    y -= this.viewportHeight / 2;
-
-    var angle = 2 * Math.PI * this.angle / 360;
-    var a = Math.cos(angle);
-    var b = -Math.sin(angle);
-    var c = -b;
-    var d = a;
-
-    var x2 = x * a + y * b;
-    var y2 = x * c + y * d;
-
-    x = x2 + this.viewportWidth / 2;
-    y = x2 + this.viewportHeight / 2;
-
-    return [x, y];
 }
 
 ArghView.prototype.vertexShaderSourceLine = 
@@ -534,6 +534,17 @@ ArghView.prototype.getLayer = function () {
     return this.layer;
 };
 
+/* Map the current viewport to the layer. No moving to tile boundaries, we
+ * sometimes need the real position for things like centring the view.
+ */
+ArghView.prototype.visibleLayerRect = function () {
+    // get the bounding box of the viewport in the layer
+    var screenRect = {x: 0, y: 0, w: this.viewportWidth, h: this.viewportHeight};
+    var layerRect = this.transformRect(this.screen2layer.bind(this), screenRect);
+
+    return layerRect;
+}
+
 /* Public: set the position of the viewport within the larger image. The
  * coordinates are in the current layer's image space, ie. we need to rotate to see how 
  * they affect the screen.
@@ -546,10 +557,20 @@ ArghView.prototype.setPosition = function (x, y) {
 
     this.time += 1;
 
+    // map the viewport on to the image
+    var layerRect = this.visibleLayerRect();
+
     // constrain to layer size
-    // FIXME ... viewportWidth should be mapped to layer coordinate space
-    x = Math.max(0, Math.min(this.layerWidth - this.viewportWidth, x));
-    y = Math.max(0, Math.min(this.layerHeight - this.viewportHeight, x));
+    x = Math.max(0, Math.min(this.layerWidth - layerRect.w, x));
+    y = Math.max(0, Math.min(this.layerHeight - layerRect.h, y));
+
+    // if image < viewport, force centre
+    if (this.layerWidth < layerRect.w) {
+        x = -(layerRect.w - this.layerWidth) / 2;
+    }
+    if (this.layerHeight < layerRect.h) {
+        y = -(layerRect.h - this.layerHeight) / 2;
+    }
 
     this.log("  (position set to x = " + x + ", y = " + y + ")");
 
@@ -625,7 +646,7 @@ ArghView.prototype.tileDraw = function (tile, tileSize) {
     var y = tile.tileTop * tileSize.h;
 
     // position on screen
-    var p = this.image2screen([x, y]);
+    var p = this.layer2screen([x, y]);
     x = p[0];
     y = p[1];
 
@@ -636,10 +657,10 @@ ArghView.prototype.tileDraw = function (tile, tileSize) {
 
     this.mvPushMatrix();
 
-    mat4.rotate(this.mvMatrix, 2 * Math.PI * this.angle / 360, [0, 0, 1]);
-    mat4.scale(this.mvMatrix, [tileSize.w, tileSize.h, 1]);
     mat4.translate(this.mvMatrix, 
         [x, this.viewportHeight - y - tileSize.h, 0]); 
+    mat4.rotate(this.mvMatrix, 2 * Math.PI * this.angle / 360, [0, 0, 1]);
+    mat4.scale(this.mvMatrix, [tileSize.w, tileSize.h, 1]);
     this.setMatrixUniforms();
 
     if (this.RTI) {
@@ -688,22 +709,18 @@ ArghView.prototype.lineDraw = function (line) {
 
     this.mvPushMatrix();
 
-    var scale = this.maxSize.w / this.layerProperties[this.layer].width;
-
-    var x1 = line.x1 / scale - this.layerLeft;
-    var y1 = this.viewportHeight - (line.y1 / scale - this.layerTop);
-    var x2 = line.x2 / scale - this.layerLeft;
-    var y2 = this.viewportHeight - (line.y2 / scale - this.layerTop);
+    // position on screen
+    var p1 = this.layer2screen([line.x1, line.y1]);
+    x1 = p1[0];
+    y1 = this.viewportHeight - p1[1];
+    var p2 = this.layer2screen([line.x2, line.y2]);
+    x2 = p2[0];
+    y2 = this.viewportHeight - p2[1];
 
     var dx = x2 - x1;
     var dy = y2 - y1;
     var length = Math.sqrt(dx * dx + dy * dy);
     var angle = Math.atan2(dy, dx);
-
-    // we rotate about the centre of the screen
-    mat4.translate(this.mvMatrix, [this.viewportWidth / 2, this.viewportHeight / 2, 0]);
-    mat4.rotate(this.mvMatrix, 2 * Math.PI * this.angle / 360, [0, 0, 1]);
-    mat4.translate(this.mvMatrix, [-this.viewportWidth / 2, -this.viewportHeight / 2, 0]);
 
     mat4.translate(this.mvMatrix, [x1, y1, 0]); 
     mat4.scale(this.mvMatrix, [length, length, 1]);
@@ -858,67 +875,53 @@ ArghView.prototype.loadTexture = function (url) {
     return tex;
 }
 
-// fetch a tile into cache
+// fetch a tile into cache 
 ArghView.prototype.tileFetch = function (z, x, y) {
     var tileLeft = (x / this.tileSize.w) | 0;
     var tileTop = (y / this.tileSize.h) | 0;
+
+    if (tileLeft < 0 ||
+        tileTop < 0 ||
+        tileLeft >= this.layerProperties[z].tilesAcross ||
+        tileTop >= this.layerProperties[z].tilesDown) {
+        return;
+    }
+
     var tile = this.tileGet(z, tileLeft, tileTop);
 
     if (!tile) { 
-        if (tileLeft >= 0 &&
-            tileTop >= 0 &&
-            tileLeft < this.layerProperties[z].tilesAcross &&
-            tileTop < this.layerProperties[z].tilesDown) {
-            var url = this.tileURL(z, tileLeft, tileTop, 0); 
-            var newTile = this.loadTexture(url); 
-            newTile.view = this;
-            newTile.tileLeft = tileLeft;
-            newTile.tileTop = tileTop;
-            newTile.tileLayer = z;
-            newTile.isReady = function () {
-                var ready = this.readyToDraw;
-                if (this.view.RTI) {
-                    ready &= this.tileH.readyToDraw &&
-                        this.tileL.readyToDraw;
-                }
-
-                return ready;
+        var url = this.tileURL(z, tileLeft, tileTop, 0); 
+        var newTile = this.loadTexture(url); 
+        newTile.view = this;
+        newTile.tileLeft = tileLeft;
+        newTile.tileTop = tileTop;
+        newTile.tileLayer = z;
+        newTile.isReady = function () {
+            var ready = this.readyToDraw;
+            if (this.view.RTI) {
+                ready &= this.tileH.readyToDraw &&
+                    this.tileL.readyToDraw;
             }
 
-            if (this.RTI) {
-                var url = this.tileURL(z, tileLeft, tileTop, 2); 
-                newTile.tileH = this.loadTexture(url); 
-                var url = this.tileURL(z, tileLeft, tileTop, 1); 
-                newTile.tileL = this.loadTexture(url); 
-            }
-
-            this.tileAdd(newTile);
-
-            newTile.onload = function () {
-                this.log("ArghView.tileFetch: arrival of " + 
-                        newTile.tileLayer + ", " + newTile.tileLeft + 
-                        ", " + newTile.tileTop, {level: 1});
-                newTile.view.draw();
-            }.bind(this);
+            return ready;
         }
+
+        if (this.RTI) {
+            var url = this.tileURL(z, tileLeft, tileTop, 2); 
+            newTile.tileH = this.loadTexture(url); 
+            var url = this.tileURL(z, tileLeft, tileTop, 1); 
+            newTile.tileL = this.loadTexture(url); 
+        }
+
+        this.tileAdd(newTile);
+
+        newTile.onload = function () {
+            this.log("ArghView.tileFetch: arrival of " + 
+                    newTile.tileLayer + ", " + newTile.tileLeft + 
+                    ", " + newTile.tileTop, {level: 1});
+            newTile.view.draw();
+        }.bind(this);
     }
-}
-
-/* Find the rect of visible tiles.
- */
-ArghView.prototype.visibleLayerRect = function () {
-    // get the bounding box of the viewport in the layer
-    var screenRect = {x: 0, y: 0, w: this.viewportWidth, h: this.viewportHeight};
-    var layerRect = this.transformRect(this.screen2layer, screenRect);
-
-    // move left and up to tile boundary
-    var left = ((layerRect.x / this.tileSize.w) | 0) * this.tileSize.w;
-    var top = ((layerRect.y / this.tileSize.h) | 0) * this.tileSize.h;
-
-    var right = (((layerRect.x + layerRect.w) / this.tileSize.w) | 0) * this.tileSize.w;
-    var bottom = (((layerRect.y + layerRect.h) / this.tileSize.h) | 0) * this.tileSize.h;
-
-    return {x: left, y: top, w: right - left, h: bottom - top};
 }
 
 // scan the cache, drawing all visible tiles from layer 0 down to this layer
@@ -974,8 +977,15 @@ ArghView.prototype.draw = function () {
         // move left and up to tile boundary
         var left = ((layerRect.x / tileSize.w) | 0) * tileSize.w;
         var top = ((layerRect.y / tileSize.h) | 0) * tileSize.h;
+
         var right = layerRect.x + layerRect.w;
         var bottom = layerRect.y + layerRect.h;
+
+        // clip against layer size
+        left = Math.max(0, Math.min(this.layerWidth, left));
+        right = Math.max(0, Math.min(this.layerWidth, right));
+        top = Math.max(0, Math.min(this.layerHeight, top));
+        bottom = Math.max(0, Math.min(this.layerHeight, bottom));
 
         for (var y = top; y < bottom; y += tileSize.h) { 
             for (var x = left; x < right; x += tileSize.w) { 
@@ -1011,9 +1021,16 @@ ArghView.prototype.fetch = function () {
 
     var layerRect = this.visibleLayerRect();
 
-    for (var y = 0; y < layerRect.h; y += this.tileSize.h) { 
-        for (var x = 0; x < layerRect.w; x += this.tileSize.w) { 
-            this.tileFetch(this.layer, layerRect.x + x, layerRect.y + y); 
+    // move left and up to tile boundary
+    var left = ((layerRect.x / this.tileSize.w) | 0) * this.tileSize.w;
+    var top = ((layerRect.y / this.tileSize.h) | 0) * this.tileSize.h;
+
+    var right = layerRect.x + layerRect.w;
+    var bottom = layerRect.y + layerRect.h;
+
+    for (var y = top; y < bottom; y += this.tileSize.h) { 
+        for (var x = left; x < right; x += this.tileSize.w) { 
+            this.tileFetch(this.layer, x, y); 
         }
     }
 

@@ -1,6 +1,9 @@
-- arghview rewrite
+- seem not to rotate about centre of window
 
-  reached line 963
+- drag no longer works on rotated images
+
+- double-click on annotation, only "delete" worksw, cancel and ok seem 
+  to do nothing
 
 
 
