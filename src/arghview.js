@@ -620,8 +620,14 @@ ArghView.prototype.setAngle = function (angle) {
 ArghView.prototype.tileDraw = function (tile, tileSize) {
     var gl = this.gl;
 
-    var x = tile.tileLeft * tileSize.w - this.layerLeft;
-    var y = tile.tileTop * tileSize.h - this.layerTop;
+    // position of tile in layer coordinates
+    var x = tile.tileLeft * tileSize.w;
+    var y = tile.tileTop * tileSize.h;
+
+    // position on screen
+    var p = this.image2screen([x, y]);
+    x = p[0];
+    y = p[1];
 
     this.log("ArghView.tileDraw: " + tile.tileLayer + ", " +
         tile.tileLeft + ", " + tile.tileTop + " at pixel " +
@@ -630,14 +636,10 @@ ArghView.prototype.tileDraw = function (tile, tileSize) {
 
     this.mvPushMatrix();
 
-    // we rotate about the centre of the screen
-    mat4.translate(this.mvMatrix, [this.viewportWidth / 2, this.viewportHeight / 2, 0]);
     mat4.rotate(this.mvMatrix, 2 * Math.PI * this.angle / 360, [0, 0, 1]);
-    mat4.translate(this.mvMatrix, [-this.viewportWidth / 2, -this.viewportHeight / 2, 0]);
-
+    mat4.scale(this.mvMatrix, [tileSize.w, tileSize.h, 1]);
     mat4.translate(this.mvMatrix, 
         [x, this.viewportHeight - y - tileSize.h, 0]); 
-    mat4.scale(this.mvMatrix, [tileSize.w, tileSize.h, 1]);
     this.setMatrixUniforms();
 
     if (this.RTI) {
@@ -970,13 +972,13 @@ ArghView.prototype.draw = function () {
         };
 
         // move left and up to tile boundary
-        var startLeft = ((this.layerLeft / tileSize.w) | 0) * tileSize.w;
-        var startTop = ((this.layerTop / tileSize.h) | 0) * tileSize.h;
-        var right = this.layerLeft + this.viewportWidth;
-        var bottom = this.layerTop + this.viewportHeight;
+        var left = ((layerRect.x / tileSize.w) | 0) * tileSize.w;
+        var top = ((layerRect.y / tileSize.h) | 0) * tileSize.h;
+        var right = layerRect.x + layerRect.w;
+        var bottom = layerRect.y + layerRect.h;
 
-        for (var y = startTop; y < bottom; y += tileSize.h) { 
-            for (var x = startLeft; x < right; x += tileSize.w) { 
+        for (var y = top; y < bottom; y += tileSize.h) { 
+            for (var x = left; x < right; x += tileSize.w) { 
                 var tileLeft = (x / tileSize.w) | 0;
                 var tileTop = (y / tileSize.h) | 0;
                 var tile = this.tileGet(z, tileLeft, tileTop);
