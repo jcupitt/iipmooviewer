@@ -17,6 +17,10 @@ var ArghView = function (canvas) {
     this.canvas = canvas;
     canvas.arghView = this;
 
+    // in debug mode, we draw some extra stuff, and also log a lot of messages
+    this.debug = true;
+    //this.debug = false;
+
     // set by setSource() below ... these come from iipmooviewer
     this.tileURL = null;
     this.maxSize = null;
@@ -50,7 +54,7 @@ var ArghView = function (canvas) {
     //
     // we support any angle, since we animate rotation changes, but this
     // will normally be 0, 90, 180, 270
-    this.angle = 0;
+    this.angle = 45;
 
     // step 2: scale the image
     //
@@ -99,7 +103,8 @@ ArghView.prototype.log = function (str, options) {
     // higher numbers mean more important messages  
     var loggingLevel = 2;
 
-    if (level >= loggingLevel) {
+    if (this.debug &&
+        level >= loggingLevel) {
         console.log(str);
     }
 }
@@ -114,8 +119,8 @@ ArghView.prototype.screen2layer = function (point) {
     var y = point[1];
 
     // rotate about the centre of the viewport
-    x -= this.viewportWidth / 2;
-    y -= this.viewportHeight / 2;
+    x = x - this.viewportWidth / 2;
+    y = y - this.viewportHeight / 2;
 
     var angle = 2 * Math.PI * this.angle / 360;
     var a = Math.cos(angle);
@@ -126,8 +131,8 @@ ArghView.prototype.screen2layer = function (point) {
     var x2 = a * x + b * y;
     var y2 = c * x + d * y;
 
-    x = x2 + this.viewportWidth / 2;
-    y = y2 + this.viewportHeight / 2;
+    x = this.viewportWidth / 2 + x2;
+    y = this.viewportHeight / 2 + y2;
 
     x *= this.scale;
     y *= this.scale;
@@ -150,8 +155,8 @@ ArghView.prototype.layer2screen = function (point) {
     x /= this.scale;
     y /= this.scale;
 
-    x -= this.viewportWidth / 2;
-    y -= this.viewportHeight / 2;
+    x = x - this.viewportWidth / 2;
+    y = y - this.viewportHeight / 2;
 
     var angle = 2 * Math.PI * -this.angle / 360;
     var a = Math.cos(angle);
@@ -162,8 +167,8 @@ ArghView.prototype.layer2screen = function (point) {
     var x2 = a * x + b * y;
     var y2 = c * x + d * y;
 
-    x = x2 + this.viewportWidth / 2;
-    y = y2 + this.viewportHeight / 2;
+    x = this.viewportWidth / 2 + x2;
+    y = this.viewportHeight / 2 + y2;
 
     return [x, y];
 }
@@ -250,6 +255,8 @@ ArghView.prototype.fragmentShaderSourceRTI =
 "    uniform sampler2D uTileTextureH; " +
 "    uniform sampler2D uTileTextureL; " +
 " " +
+"    uniform bool solid; " +
+" " +
 "    uniform vec3 uHOffset; " +
 "    uniform vec3 uHScale; " +
 "    uniform vec3 uHWeight; " +
@@ -269,6 +276,10 @@ ArghView.prototype.fragmentShaderSourceRTI =
 "        float l = l3.x + l3.y + l3.z; " +
 " " +
 "        colour *= l; " +
+"        if (solid) { " +
+"            colour = vec3(1.0, 1.0, 1.0); " +
+"        } " +
+" " +
 "        gl_FragColor = vec4(colour, 1.0); " +
 "    } ";
 
@@ -414,6 +425,7 @@ ArghView.prototype.initGL = function () {
         gl.getUniformLocation(program, "uTileTextureH");
     program.tileTextureLUniform = 
         gl.getUniformLocation(program, "uTileTextureL");
+    program.solidUniform = gl.getUniformLocation(program, "solid");
     program.hOffsetUniform = gl.getUniformLocation(program, "uHOffset");
     program.hScaleUniform = gl.getUniformLocation(program, "uHScale");
     program.hWeightUniform = gl.getUniformLocation(program, "uHWeight");
@@ -440,7 +452,12 @@ ArghView.prototype.initGL = function () {
     this.lineBuffer = this.bufferCreateDiscontinuous([[0, 0], [1, 0]]);
 
     // black background
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    if (this.debug) {
+        gl.clearColor(0.5, 0.0, 0.0, 1.0);
+    }
+    else {
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    }
 }
 
 /* Public: set the source for image tiles ... parameters matched to 
@@ -664,6 +681,7 @@ ArghView.prototype.tileDraw = function (tile, tileSize) {
     this.setMatrixUniforms();
 
     if (this.RTI) {
+        gl.uniform1f(this.program.solidUniform, 0);
         gl.uniform3fv(this.program.hScaleUniform, this.hScale);
         gl.uniform3fv(this.program.hOffsetUniform, this.hOffset);
         gl.uniform3fv(this.program.hWeightUniform, this.hWeight);
@@ -697,6 +715,11 @@ ArghView.prototype.tileDraw = function (tile, tileSize) {
         this.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, this.vertexBuffer.numItems);
+
+    if (this.debug) {
+        gl.uniform1f(this.program.solidUniform, 1);
+        gl.drawArrays(gl.LINE_LOOP, 0, this.vertexBuffer.numItems);
+    }
 
     this.mvPopMatrix();
 };

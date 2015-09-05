@@ -19,4 +19,7 @@
 
 - screen2image / image2screen could be much faster
 
+- add culling: we currently draw all layers from the back, we could skip tiles we know muct be complete obscured by
+  higher-res tiles
 
+  would fix 10x overdraw in some cases
