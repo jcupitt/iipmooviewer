@@ -101,7 +101,7 @@ ArghView.prototype.log = function (str, options) {
     var level = options.level || 2;
 
     // higher numbers mean more important messages  
-    var loggingLevel = 2;
+    var loggingLevel = 1;
 
     if (this.debug &&
         level >= loggingLevel) {
@@ -119,8 +119,8 @@ ArghView.prototype.screen2layer = function (point) {
     var y = point[1];
 
     // rotate about the centre of the viewport
-    x = this.viewportWidth / 2 - x;
-    y = this.viewportHeight / 2 - y;
+    x = x - this.viewportWidth / 2;
+    y = y - this.viewportHeight / 2;
 
     var angle = 2 * Math.PI * this.angle / 360;
     var a = Math.cos(angle);
@@ -448,8 +448,9 @@ ArghView.prototype.initGL = function () {
     this.lScale = vec3.create()
     this.lWeight = vec3.create()
 
-    // we draw tiles as 1x1 squares, scaled, translated and textured
-    this.vertexBuffer = this.bufferCreate([[1, 1], [1, 0], [0, 1], [0, 0]]);
+    // we draw tiles as 1x1 squares, scaled, translated and textured ... we want
+    // the origin for the square to be at the top left
+    this.vertexBuffer = this.bufferCreate([[1, 0], [1, -1], [0, 0], [0, -1]]);
     this.textureCoordsBuffer = this.vertexBuffer; 
 
     // draw overlay lines with this, scaled and rotated
@@ -678,8 +679,7 @@ ArghView.prototype.tileDraw = function (tile, tileSize) {
 
     this.mvPushMatrix();
 
-    mat4.translate(this.mvMatrix, 
-        [x, this.viewportHeight - y - tileSize.h, 0]); 
+    mat4.translate(this.mvMatrix, [x, this.viewportHeight - y, 0]); 
     mat4.rotate(this.mvMatrix, 2 * Math.PI * this.angle / 360, [0, 0, 1]);
     mat4.scale(this.mvMatrix, [tileSize.w, tileSize.h, 1]);
     this.setMatrixUniforms();
@@ -722,6 +722,9 @@ ArghView.prototype.tileDraw = function (tile, tileSize) {
 
     if (this.debug) {
         gl.uniform1f(this.program.solidUniform, -1);
+        gl.drawArrays(gl.LINE_LOOP, 0, this.vertexBuffer.numItems);
+        mat4.scale(this.mvMatrix, [0.1, 0.1, 1]);
+        this.setMatrixUniforms();
         gl.drawArrays(gl.LINE_LOOP, 0, this.vertexBuffer.numItems);
     }
 
@@ -869,8 +872,6 @@ ArghView.prototype.loadTexture = function (url) {
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
     tex.readyToDraw = false;
     tex.url = url;
