@@ -155,8 +155,8 @@ ArghView.prototype.layer2screen = function (point) {
     x /= this.scale;
     y /= this.scale;
 
-    x = this.viewportWidth / 2 - x;
-    y = this.viewportHeight / 2 - y;
+    x = x - this.viewportWidth / 2;
+    y = y - this.viewportHeight / 2;
 
     var angle = 2 * Math.PI * -this.angle / 360;
     var a = Math.cos(angle);
@@ -255,7 +255,7 @@ ArghView.prototype.fragmentShaderSourceRTI =
 "    uniform sampler2D uTileTextureH; " +
 "    uniform sampler2D uTileTextureL; " +
 " " +
-"    uniform bool solid; " +
+"    uniform float solid; " +
 " " +
 "    uniform vec3 uHOffset; " +
 "    uniform vec3 uHScale; " +
@@ -265,19 +265,23 @@ ArghView.prototype.fragmentShaderSourceRTI =
 "    uniform vec3 uLWeight; " +
 " " +
 "    void main(void) { " +
-"        vec2 pos = vec2(vTextureCoord.s, vTextureCoord.t); " +
+"        vec3 colour; " + 
 " " +
-"        vec3 colour = texture2D(uTileTexture, pos).xyz; " +
-"        vec3 coeffH = texture2D(uTileTextureH, pos).xyz; " +
-"        vec3 coeffL = texture2D(uTileTextureL, pos).xyz; " +
-" " +
-"        vec3 l3 = (coeffH - uHOffset) * uHScale * uHWeight + " +
-"                (coeffL - uLOffset) * uLScale * uLWeight; " +
-"        float l = l3.x + l3.y + l3.z; " +
-" " +
-"        colour *= l; " +
-"        if (solid) { " +
+"        if (solid != 0.0) { " +
 "            colour = vec3(1.0, 1.0, 1.0); " +
+"        } " +
+"        else { " +
+"           vec2 pos = vec2(vTextureCoord.s, vTextureCoord.t); " +
+" " +
+"           colour = texture2D(uTileTexture, pos).xyz; " +
+"           vec3 coeffH = texture2D(uTileTextureH, pos).xyz; " +
+"           vec3 coeffL = texture2D(uTileTextureL, pos).xyz; " +
+" " +
+"           vec3 l3 = (coeffH - uHOffset) * uHScale * uHWeight + " +
+"                (coeffL - uLOffset) * uLScale * uLWeight; " +
+"           float l = l3.x + l3.y + l3.z; " +
+" " +
+"           colour *= l; " +
 "        } " +
 " " +
 "        gl_FragColor = vec4(colour, 1.0); " +
@@ -717,7 +721,7 @@ ArghView.prototype.tileDraw = function (tile, tileSize) {
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, this.vertexBuffer.numItems);
 
     if (this.debug) {
-        gl.uniform1f(this.program.solidUniform, 1);
+        gl.uniform1f(this.program.solidUniform, -1);
         gl.drawArrays(gl.LINE_LOOP, 0, this.vertexBuffer.numItems);
     }
 
