@@ -443,7 +443,7 @@ var IIPMooViewer = new Class({
       function (value) {
         _this.arghView.setAngle(-value);
         _this.arghView.setLightPosition(_this.view.light_x, _this.view.light_y);
-        _this.arghView.draw();
+        _this.arghView.fetch();
       },
       {
         duration: 'long'
@@ -1356,7 +1356,7 @@ var IIPMooViewer = new Class({
         _this.zoomTo(parseInt(params[2]));
         _this.centerTo(parseFloat(params[0]), parseFloat(params[1]));
         _this.setLightPosition(parseFloat(params[3]), parseFloat(params[4]));
-        _this.arghView.draw();
+        _this.arghView.fetch();
       });
     }
 

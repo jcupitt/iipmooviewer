@@ -54,7 +54,7 @@ var ArghView = function (canvas) {
     //
     // we support any angle, since we animate rotation changes, but this
     // will normally be 0, 90, 180, 270
-    this.angle = 45;
+    this.angle = 0;
 
     // step 2: scale the image
     //
@@ -119,8 +119,8 @@ ArghView.prototype.screen2layer = function (point) {
     var y = point[1];
 
     // rotate about the centre of the viewport
-    x = x - this.viewportWidth / 2;
-    y = y - this.viewportHeight / 2;
+    x = this.viewportWidth / 2 - x;
+    y = this.viewportHeight / 2 - y;
 
     var angle = 2 * Math.PI * this.angle / 360;
     var a = Math.cos(angle);
@@ -155,8 +155,8 @@ ArghView.prototype.layer2screen = function (point) {
     x /= this.scale;
     y /= this.scale;
 
-    x = x - this.viewportWidth / 2;
-    y = y - this.viewportHeight / 2;
+    x = this.viewportWidth / 2 - x;
+    y = this.viewportHeight / 2 - y;
 
     var angle = 2 * Math.PI * -this.angle / 360;
     var a = Math.cos(angle);
