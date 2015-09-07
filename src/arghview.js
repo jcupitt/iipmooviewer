@@ -448,9 +448,8 @@ ArghView.prototype.initGL = function () {
     this.lScale = vec3.create()
     this.lWeight = vec3.create()
 
-    // we draw tiles as 1x1 squares, scaled, translated and textured ... we want
-    // the origin for the square to be at the top left
-    this.vertexBuffer = this.bufferCreate([[1, 0], [1, -1], [0, 0], [0, -1]]);
+    // we draw tiles as 1x1 squares, scaled, translated and textured 
+    this.vertexBuffer = this.bufferCreate([[1, 1], [1, 0], [0, 1], [0, 0]]);
     this.textureCoordsBuffer = this.vertexBuffer; 
 
     // draw overlay lines with this, scaled and rotated
@@ -681,6 +680,7 @@ ArghView.prototype.tileDraw = function (tile, tileSize) {
 
     mat4.translate(this.mvMatrix, [x, this.viewportHeight - y, 0]); 
     mat4.rotate(this.mvMatrix, 2 * Math.PI * this.angle / 360, [0, 0, 1]);
+    mat4.translate(this.mvMatrix, [0, -tileSize.h, 0]); 
     mat4.scale(this.mvMatrix, [tileSize.w, tileSize.h, 1]);
     this.setMatrixUniforms();
 
@@ -874,7 +874,9 @@ ArghView.prototype.loadTexture = function (url) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
     tex.readyToDraw = false;
+
     tex.url = url;
+
     var tileSize = this.tileSize;
     var img = new Image();
     img.src = url;
@@ -924,6 +926,14 @@ ArghView.prototype.tileFetch = function (z, x, y) {
         newTile.tileLeft = tileLeft;
         newTile.tileTop = tileTop;
         newTile.tileLayer = z;
+
+        if (this.RTI) {
+            var url = this.tileURL(z, tileLeft, tileTop, 2); 
+            newTile.tileH = this.loadTexture(url); 
+            var url = this.tileURL(z, tileLeft, tileTop, 1); 
+            newTile.tileL = this.loadTexture(url); 
+        }
+
         newTile.isReady = function () {
             var ready = this.readyToDraw;
             if (this.view.RTI) {
@@ -934,21 +944,20 @@ ArghView.prototype.tileFetch = function (z, x, y) {
             return ready;
         }
 
-        if (this.RTI) {
-            var url = this.tileURL(z, tileLeft, tileTop, 2); 
-            newTile.tileH = this.loadTexture(url); 
-            var url = this.tileURL(z, tileLeft, tileTop, 1); 
-            newTile.tileL = this.loadTexture(url); 
-        }
-
         this.tileAdd(newTile);
 
         newTile.onload = function () {
             this.log("ArghView.tileFetch: arrival of " + 
                     newTile.tileLayer + ", " + newTile.tileLeft + 
                     ", " + newTile.tileTop, {level: 1});
-            newTile.view.draw();
+            if (newTile.isReady) {
+                newTile.view.draw();
+            }
         }.bind(this);
+        if (this.RTI) {
+            newTile.tileH.onload = newTile.onload;
+            newTile.tileL.onload = newTile.onload;
+        }
     }
 }
 
