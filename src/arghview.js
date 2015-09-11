@@ -320,7 +320,7 @@ ArghView.prototype.bufferCreate = function (points) {
 ArghView.prototype.bufferCreateDiscontinuous = function (points) {
     var gl = this.gl;
 
-    if (points.length % 2 != 0) {
+    if (points.length % 2 !== 0) {
         console.log("bufferCreateDiscontinuous: not an even number of points");
     }
 
@@ -614,7 +614,7 @@ ArghView.prototype.setLightPosition = function (x, y) {
     var norm = Math.min(1.0, Math.sqrt(lx * lx + ly * ly));
 
     var alpha;
-    if (lx != 0.0) {
+    if (lx !== 0.0) {
         alpha = Math.atan2(ly, lx);
     }
     else {
@@ -652,12 +652,45 @@ ArghView.prototype.setLines = function (lines) {
     this.lines = lines;
 }
 
-/* Public ... set the centre of rotation. We call this when one of the rotate
- * buttons is pushed and give it the centre of the viewport. When we tween
- * setAngle() after this, the screen will spin around the centre.
+/* Public ... set the centre of rotation, in screen coordinates. We call this 
+ * when one of the rotate buttons is pushed and give it the centre of the 
+ * viewport. When we tween setAngle() after this, the screen will spin 
+ * around this point.
  */
-ArghView.prototype.setCentre = function (x, y) {
+ArghView.prototype.setCentre = function (rotateLeft, rotateTop) {
+    // where does (0, 0) go to with the old rotate centre?
+    var angle = 2 * Math.PI * this.angle / 360;
+    var a = Math.cos(angle);
+    var b = -Math.sin(angle);
+    var c = -b;
+    var d = a;
 
+    var x1 = -this.rotateLeft;
+    var y1 = -this.rotateTop;
+
+    var x = a * x1 + b * y1;
+    var y = c * x1 + d * y1;
+
+    x1 = x + this.rotateLeft;
+    y1 = y + this.rotateTop;
+ 
+    // where does (0, 0) go to with the new rotate centre?
+    var x2 = -rotateLeft;
+    var y2 = -rotateTop;
+
+    x = a * x2 + b * y2;
+    y = c * x2 + d * y2;
+
+    x2 = x + this.rotateLeft;
+    y2 = y + this.rotateTop;
+
+    // so we must adjust layerLeft / Top by the difference to keep all points
+    // the same
+    this.layerLeft += x2 - x1;
+    this.layerTop += y2 - y1;
+
+    this.rotateLeft = rotateLeft;
+    this.rotateTop = rotateTop; 
 }
 
 /* Public ... set the rotation angle. In degrees, positive values are
@@ -894,7 +927,7 @@ ArghView.prototype.loadTexture = function (url) {
     img.src = url;
     img.onload = function () {
         // we may have overlaps, or edge tiles may be smaller than tilesize
-        if (img.width != tileSize.w || img.height != tileSize.h) {
+        if (img.width !== tileSize.w || img.height !== tileSize.h) {
             var canvas = document.createElement("canvas");
             canvas.width = tileSize.w;
             canvas.height = tileSize.h;
@@ -985,8 +1018,8 @@ ArghView.prototype.draw = function () {
     // have we resized since the last draw?
     var width = gl.canvas.clientWidth;
     var height = gl.canvas.clientHeight;
-    if (gl.canvas.width != width ||
-        gl.canvas.height != height) {
+    if (gl.canvas.width !== width ||
+        gl.canvas.height !== height) {
         gl.canvas.width = width;
         gl.canvas.height = height;
         this.viewportWidth = width;
