@@ -42,32 +42,42 @@ var ArghView = function (canvas) {
     this.log("ArghView: viewportWidth = " + this.viewportWidth + 
         ", viewportHeight = " + this.viewportHeight);
 
-    // the transformation to go from screen-space pixels (offsets within
-    // viewportWidth and viewportHeight) to pixels within layerWidth and
-    // layerHeight ... imagine the viewport as fixed and the real image spinning
-    // and scaling under it
-
-    // step 1: rotate the image
+    // the transformation from the layer (the current image layer we are
+    // displaying) to the screen
     //
-    // the angle we display at in degrees ... 0 is 'normal', we rotate about the
-    // centre of the viewport, +ve is anticlockwise
+    // imagine starting with the tile whose top-left corner is at (0, 0) in the
+    // current layer ... where do we draw this on the screen?
+    //
+    // step 1: translate 
+    //
+    // move up and left by this much ... ie. positive values will pan the
+    // viewport across the image
+    this.layerLeft = 0;
+    this.layerTop = 0;
+
+    // step 2: shrink the image
+    //
+    // simple scale of coordinates ... we usually reduce rather than enlarge, 
+    // so this is a shrink factor
+    //
+    // scale = this.maxSize.w / this.layerProperties[this.layer].width;
+    this.shrink = 1;
+
+    // step 3: rotate the image
+    //
+    // we need to store the centre of rotation as well ... we want to be able 
+    // to rotate about the centre of the screen, but we don't want our transform
+    // to depend on the current xy of the viewport, because then when we tried
+    // to pan we'd have a circular dependency (transform depends on the thing
+    // we're trying to change)
+    //
+    // subtract rotateLeft/Top, rotate, add them back
     //
     // we support any angle, since we animate rotation changes, but this
     // will normally be 0, 90, 180, 270
     this.angle = 0;
-
-    // step 2: scale the image
-    //
-    // simple scale of coordinates
-    // scale = this.maxSize.w / this.layerProperties[this.layer].width;
-    this.scale = 1;
-
-    // step 3: translate the image
-    //
-    // we are now in image coordinates, we can translate ... the offset from the
-    // top left-hand corner of the image in the current layer
-    this.layerLeft = 0;
-    this.layerTop = 0;
+    this.rotateLeft = 0;
+    this.rotateTop = 0;
 
     // each +1 is a x2 layer larger
     this.layer = 0;
@@ -101,46 +111,12 @@ ArghView.prototype.log = function (str, options) {
     var level = options.level || 2;
 
     // higher numbers mean more important messages  
-    var loggingLevel = 1;
+    var loggingLevel = 2;
 
     if (this.debug &&
         level >= loggingLevel) {
         console.log(str);
     }
-}
-
-/* Public ... transform from screen coordinates to layer coordinates. Screen
- * cods are the things we get from eg. event.clientX. Layer cods are 
- * coordinates in the image we are displaying, in terms of the size of 
- * the current layer.  
- */
-ArghView.prototype.screen2layer = function (point) {
-    var x = point[0];
-    var y = point[1];
-
-    // rotate about the centre of the viewport
-    x = x - this.viewportWidth / 2;
-    y = y - this.viewportHeight / 2;
-
-    var angle = 2 * Math.PI * this.angle / 360;
-    var a = Math.cos(angle);
-    var b = -Math.sin(angle);
-    var c = -b;
-    var d = a;
-
-    var x2 = a * x + b * y;
-    var y2 = c * x + d * y;
-
-    x = this.viewportWidth / 2 + x2;
-    y = this.viewportHeight / 2 + y2;
-
-    x *= this.scale;
-    y *= this.scale;
-
-    x += this.layerLeft;
-    y += this.layerTop;
-
-    return [x, y];
 }
 
 /* Public ... transform from layer coordinates to screen coordinates, see above.
@@ -152,11 +128,11 @@ ArghView.prototype.layer2screen = function (point) {
     x -= this.layerLeft;
     y -= this.layerTop;
 
-    x /= this.scale;
-    y /= this.scale;
+    x /= this.shrink;
+    y /= this.shrink;
 
-    x = x - this.viewportWidth / 2;
-    y = y - this.viewportHeight / 2;
+    x = x - this.rotateLeft;
+    y = y - this.rotateTop;
 
     var angle = 2 * Math.PI * -this.angle / 360;
     var a = Math.cos(angle);
@@ -167,8 +143,38 @@ ArghView.prototype.layer2screen = function (point) {
     var x2 = a * x + b * y;
     var y2 = c * x + d * y;
 
-    x = this.viewportWidth / 2 + x2;
-    y = this.viewportHeight / 2 + y2;
+    x = x2 + this.rotateLeft;
+    y = y2 + this.rotateTop;
+
+    return [x, y];
+}
+
+/* Public ... transform from screen coordinates to layer coordinates. See above.
+ */
+ArghView.prototype.screen2layer = function (point) {
+    var x = point[0];
+    var y = point[1];
+
+    x = x - this.rotateLeft;
+    y = y - this.rotateTop;
+
+    var angle = 2 * Math.PI * this.angle / 360;
+    var a = Math.cos(angle);
+    var b = -Math.sin(angle);
+    var c = -b;
+    var d = a;
+
+    var x2 = a * x + b * y;
+    var y2 = c * x + d * y;
+
+    x = x2 + this.rotateLeft;
+    y = y2 + this.rotateTop;
+
+    x *= this.shrink;
+    y *= this.shrink;
+
+    x += this.layerLeft;
+    y += this.layerTop;
 
     return [x, y];
 }
@@ -314,7 +320,7 @@ ArghView.prototype.bufferCreate = function (points) {
 ArghView.prototype.bufferCreateDiscontinuous = function (points) {
     var gl = this.gl;
 
-    if (points.length % 2 != 0) {
+    if (points.length % 2 !== 0) {
         console.log("bufferCreateDiscontinuous: not an even number of points");
     }
 
@@ -546,9 +552,6 @@ ArghView.prototype.setLayer = function (layer) {
     this.log("  (layer set to " + layer + ")");
     this.log("  (layer size is " + 
             this.layerWidth + ", " + this.layerHeight + ")");
-
-    // we may need to move the image, for example to change the centring 
-    this.setPosition(this.layerLeft, this.layerTop);
 };
 
 ArghView.prototype.getLayer = function () {
@@ -567,36 +570,37 @@ ArghView.prototype.visibleLayerRect = function () {
 }
 
 /* Public: set the position of the viewport within the larger image. The
- * coordinates are in the current layer's image space, ie. we need to rotate to see how 
- * they affect the screen.
+ * coordinates are in the current layer's coordinates.
  *
- * If we are zoomed out far enough that the image is smaller than the viewport,
- * centre the image.
+ * If we are zoomed out far enough that the image is smaller than the 
+ * viewport, centre the image.  
  */
 ArghView.prototype.setPosition = function (x, y) {
     this.log("ArghView.setPosition: x = " + x + ", y = " + y);
 
     this.time += 1;
 
-    // map the viewport on to the image
+    // get the size of the viewport
     var layerRect = this.visibleLayerRect();
+    var w = layerRect.w;
+    var h = layerRect.h;
 
     // constrain to layer size
-    x = Math.max(0, Math.min(this.layerWidth - layerRect.w, x));
-    y = Math.max(0, Math.min(this.layerHeight - layerRect.h, y));
+    x = Math.max(0, Math.min(this.layerWidth - w, x));
+    y = Math.max(0, Math.min(this.layerHeight - h, y));
 
     // if image < viewport, force centre
-    if (this.layerWidth < layerRect.w) {
-        x = -(layerRect.w - this.layerWidth) / 2;
+    if (this.layerWidth < w) {
+        x = -(w - this.layerWidth) / 2;
     }
-    if (this.layerHeight < layerRect.h) {
-        y = -(layerRect.h - this.layerHeight) / 2;
+    if (this.layerHeight < h) {
+        y = -(h - this.layerHeight) / 2;
     }
-
-    this.log("  (position set to x = " + x + ", y = " + y + ")");
 
     this.layerLeft = x;
     this.layerTop = y;
+
+    this.log("  (position set to " + x + ", " + y + ")");
 };
 
 /* Public ... light position in [-1, 1] ... compute the lighting function.
@@ -610,7 +614,7 @@ ArghView.prototype.setLightPosition = function (x, y) {
     var norm = Math.min(1.0, Math.sqrt(lx * lx + ly * ly));
 
     var alpha;
-    if (lx != 0.0) {
+    if (lx !== 0.0) {
         alpha = Math.atan2(ly, lx);
     }
     else {
@@ -646,6 +650,47 @@ ArghView.prototype.setScaleOffset =
  */
 ArghView.prototype.setLines = function (lines) {
     this.lines = lines;
+}
+
+/* Public ... set the centre of rotation, in screen coordinates. We call this 
+ * when one of the rotate buttons is pushed and give it the centre of the 
+ * viewport. When we tween setAngle() after this, the screen will spin 
+ * around this point.
+ */
+ArghView.prototype.setCentre = function (rotateLeft, rotateTop) {
+    // where does (0, 0) go to with the old rotate centre?
+    var angle = 2 * Math.PI * this.angle / 360;
+    var a = Math.cos(angle);
+    var b = -Math.sin(angle);
+    var c = -b;
+    var d = a;
+
+    var x1 = -this.rotateLeft;
+    var y1 = -this.rotateTop;
+
+    var x = a * x1 + b * y1;
+    var y = c * x1 + d * y1;
+
+    x1 = x + this.rotateLeft;
+    y1 = y + this.rotateTop;
+ 
+    // where does (0, 0) go to with the new rotate centre?
+    var x2 = -rotateLeft;
+    var y2 = -rotateTop;
+
+    x = a * x2 + b * y2;
+    y = c * x2 + d * y2;
+
+    x2 = x + this.rotateLeft;
+    y2 = y + this.rotateTop;
+
+    // so we must adjust layerLeft / Top by the difference to keep all points
+    // the same
+    this.layerLeft += x2 - x1;
+    this.layerTop += y2 - y1;
+
+    this.rotateLeft = rotateLeft;
+    this.rotateTop = rotateTop; 
 }
 
 /* Public ... set the rotation angle. In degrees, positive values are
@@ -882,7 +927,7 @@ ArghView.prototype.loadTexture = function (url) {
     img.src = url;
     img.onload = function () {
         // we may have overlaps, or edge tiles may be smaller than tilesize
-        if (img.width != tileSize.w || img.height != tileSize.h) {
+        if (img.width !== tileSize.w || img.height !== tileSize.h) {
             var canvas = document.createElement("canvas");
             canvas.width = tileSize.w;
             canvas.height = tileSize.h;
@@ -973,8 +1018,8 @@ ArghView.prototype.draw = function () {
     // have we resized since the last draw?
     var width = gl.canvas.clientWidth;
     var height = gl.canvas.clientHeight;
-    if (gl.canvas.width != width ||
-        gl.canvas.height != height) {
+    if (gl.canvas.width !== width ||
+        gl.canvas.height !== height) {
         gl.canvas.width = width;
         gl.canvas.height = height;
         this.viewportWidth = width;

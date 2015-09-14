@@ -1,4 +1,23 @@
-- seem not to rotate about centre of window
+- zoom in max, rotate top to left (+90), scroll using nav window
+
+  we scroll, but the display is drawn half off the top of the screen
+
+  we are setting layerLeft/Top correctly (eg. 0, 900 to display about halfway
+  down), but:
+
+    var layerRect = this.visibleLayerRect();
+
+  in .draw() is not working. We do:
+
+    start with viewport {x: 0, y: 0, w: 393, h: 1103}
+
+    rotate -90 about viewport centre gives {x: -355, y: 1421, w: 1103, h: 393}
+
+    translate by layerLeft/Top gives {x: -355, y: 500, w: 1103, h: 393}
+
+  
+
+
 
 - drag no longer works on rotated images
 
