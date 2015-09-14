@@ -1003,6 +1003,8 @@ ArghView.prototype.draw = function () {
 
     var layerRect = this.visibleLayerRect();
 
+    var n_drawn = 0;
+
     for (var z = 0; z <= this.layer; z++) { 
         // we draw tiles at this layer at 1:1, tiles above this we double 
         // tileSize each time
@@ -1033,10 +1035,13 @@ ArghView.prototype.draw = function () {
                 if (tile &&
                     tile.isReady()) { 
                     this.tileDraw(tile, tileSize);
+                    n_drawn += 1;
                 }
             }
         }
     }
+
+    this.log("ArghView.draw: drew " + n_drawn + " tiles");
 
     // now draw any overlay lines
     if (this.lines.length > 0) {
