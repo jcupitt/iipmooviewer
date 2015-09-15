@@ -182,29 +182,31 @@ ArghView.prototype.screen2layer = function (point) {
 /* Public: transform a rect with a point transformer (eg. screen2layer).
  */
 ArghView.prototype.transformRect = function (fn, rect) {
-    // the four corners
-    var p = [[rect.x, rect.y],
-             [rect.x + rect.w, rect.y],
-             [rect.x, rect.y + rect.h],
-             [rect.x + rect.w, rect.y + rect.h]];
+    // the diagional corners
+    var p1 = fn([rect.x, rect.y]);
+    var p2 = fn([rect.x + rect.w, rect.y + rect.h]);
 
-    var p1 = Array(p.length);
-    for (var i = 0; i < p.length; i++) {
-        p1[i] = fn(p[i]);
+    return {x: p1[0], y: p1[1], w: p2[0] - p1[0], h: p2[1] - p1[1]}; 
+}
+
+/* Public: normalise a rect, so width and/or height are always positive. 
+ */
+ArghView.prototype.normaliseRect = function (rect) {
+    var x = rect.x;
+    var y = rect.y;
+    var w = rect.w;
+    var h = rect.h;
+
+    if (w < 0) {
+        x += w;
+        w *= -1;
+    }
+    if (h < 0) {
+        y += h;
+        h *= -1;
     }
 
-    var left = p1[0][0];
-    var top = p1[0][1];
-    var right = p1[0][0];
-    var bottom = p1[0][1];
-    for (var i = 0; i < p1.length; i++) {
-        left = Math.min(left, p1[i][0]);
-        top = Math.min(top, p1[i][1]);
-        right = Math.max(right, p1[i][0]);
-        bottom = Math.max(bottom, p1[i][1]);
-    }
-
-    return {x: left, y: top, w: right - left, h: bottom - top}; 
+    return {x: x, y: y, w: w, h: h}; 
 }
 
 ArghView.prototype.vertexShaderSourceLine = 
@@ -566,7 +568,7 @@ ArghView.prototype.visibleLayerRect = function () {
     var screenRect = {x: 0, y: 0, w: this.viewportWidth, h: this.viewportHeight};
     var layerRect = this.transformRect(this.screen2layer.bind(this), screenRect);
 
-    return layerRect;
+    return tghis.normaliseRect(layerRect);
 }
 
 /* Public: set the position of the viewport within the larger image. The
@@ -658,6 +660,8 @@ ArghView.prototype.setLines = function (lines) {
  * around this point.
  */
 ArghView.prototype.setCentre = function (rotateLeft, rotateTop) {
+    this.log("setCentre: rotateLeft = " + rotateLeft + ", rotateTop = " + rotateTop);
+
     // where does (0, 0) go to with the old rotate centre?
     var angle = 2 * Math.PI * this.angle / 360;
     var a = Math.cos(angle);
@@ -686,8 +690,12 @@ ArghView.prototype.setCentre = function (rotateLeft, rotateTop) {
 
     // so we must adjust layerLeft / Top by the difference to keep all points
     // the same
-    this.layerLeft += x2 - x1;
-    this.layerTop += y2 - y1;
+    var dx = x2 - x1;
+    var dy = y2 - y1;
+    this.layerLeft += dx;
+    this.layerTop += dy;
+
+    this.log(" (dx = " + dx + ", dy = " + dy);
 
     this.rotateLeft = rotateLeft;
     this.rotateTop = rotateTop; 
@@ -1009,7 +1017,7 @@ ArghView.prototype.tileFetch = function (z, x, y) {
 // scan the cache, drawing all visible tiles from layer 0 down to this layer
 ArghView.prototype.draw = function () {
     this.log("ArghView.draw: viewportWidth = " + this.viewportWidth + 
-            ", viewportHeight = " + this.viewportHeight);
+            ", viewportHeight = " + this.viewportHeight, {level: 1});
 
     var gl = this.gl;
 
@@ -1086,7 +1094,7 @@ ArghView.prototype.draw = function () {
         }
     }
 
-    this.log("ArghView.draw: drew " + n_drawn + " tiles");
+    this.log("ArghView.draw: drew " + n_drawn + " tiles", {level: 1});
 
     // now draw any overlay lines
     if (this.lines.length > 0) {
