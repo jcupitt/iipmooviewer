@@ -71,7 +71,9 @@ var ArghView = function (canvas) {
     // to pan we'd have a circular dependency (transform depends on the thing
     // we're trying to change)
     //
-    // subtract rotateLeft/Top, rotate, add them back
+    // subtract rotateLeft/Top, rotate, add them back ... in other words,
+    // rotateLeft/Top is in scaled and translated layer coordinates, not in
+    // screen coordinates
     //
     // we support any angle, since we animate rotation changes, but this
     // will normally be 0, 90, 180, 270
@@ -565,10 +567,12 @@ ArghView.prototype.getLayer = function () {
  */
 ArghView.prototype.visibleLayerRect = function () {
     // get the bounding box of the viewport in the layer
-    var screenRect = {x: 0, y: 0, w: this.viewportWidth, h: this.viewportHeight};
-    var layerRect = this.transformRect(this.screen2layer.bind(this), screenRect);
+    var screenRect = {x: 0, y: 0, 
+        w: this.viewportWidth, h: this.viewportHeight};
+    var layerRect = this.transformRect(this.screen2layer.bind(this), 
+        screenRect);
 
-    return tghis.normaliseRect(layerRect);
+    return this.normaliseRect(layerRect);
 }
 
 /* Public: set the position of the viewport within the larger image. The
@@ -582,33 +586,54 @@ ArghView.prototype.setPosition = function (x, y) {
 
     this.time += 1;
 
-    // get the size of the viewport
-    var layerRect = this.visibleLayerRect();
-    var w = layerRect.w;
-    var h = layerRect.h;
-
-    // constrain to layer size
-    x = Math.max(0, Math.min(this.layerWidth - w, x));
-    y = Math.max(0, Math.min(this.layerHeight - h, y));
-
-    // if image < viewport, force centre
-    if (this.layerWidth < w) {
-        x = -(w - this.layerWidth) / 2;
-    }
-    if (this.layerHeight < h) {
-        y = -(h - this.layerHeight) / 2;
-    }
-
+    // set the position, then translate the layer geometry to screen space for
+    // any clipping or centring
     this.layerLeft = x;
     this.layerTop = y;
 
-    this.log("  (position set to " + x + ", " + y + ")");
+    // the layer as a rect 
+    var layerRect = {x: 0, y: 0, w: this.layerWidth, h: this.layerHeight};
+    layerRect = this.transformRect(this.layer2screen.bind(this), layerRect);
+    layerRect = this.normaliseRect(layerRect);
+
+    // how do we need to move layerRect to centre and constrain?
+    var new_x = layerRect.x;
+    var new_y = layerRect.y;
+
+    new_x = Math.min(0, 
+        Math.max(this.viewportWidth - this.layerWidth, new_x));
+    new_y = Math.min(0, 
+        Math.max(this.viewportHeight - this.layerHeight, new_y));
+
+    if (layerRect.w < this.viewportWidth) {
+        new_x = (this.viewportWidth - layerRect.w) / 2;
+    }
+    if (layerRect.h < this.viewportHeight) {
+        new_y = (this.viewportHeight - layerRect.h) / 2;
+    }
+
+    // what's the delta we need
+    var dx = layerRect.x - new_x;
+    var dy = layerRect.y - new_y;
+
+    // translate that delta back to layer space ... we need to take (0, 0) in
+    // layer space to screen space, apply the delta, go back to layer
+    var p = this.layer2screen([0, 0]);
+    p[0] += dx;
+    p[1] += dy;
+    var layer_delta = this.screen2layer(p);
+
+    this.layerLeft += layer_delta[0];
+    this.layerTop += layer_delta[1];
+
+    this.log("  (position set to " + this.layerLeft + 
+            ", " + this.layerTop + ")");
 };
 
 /* Public ... light position in [-1, 1] ... compute the lighting function.
  */
 ArghView.prototype.setLightPosition = function (x, y) {
-    this.log("setLightPosition: x = " + x + ", y = " + y);
+    this.log("setLightPosition: x = " + x + ", y = " + y, {level: 1});
 
     var lx = Math.min(1.0, Math.max(-1.0, x * 1.1));
     var ly = Math.min(1.0, Math.max(-1.0, y * 1.1));
@@ -659,8 +684,17 @@ ArghView.prototype.setLines = function (lines) {
  * viewport. When we tween setAngle() after this, the screen will spin 
  * around this point.
  */
-ArghView.prototype.setCentre = function (rotateLeft, rotateTop) {
-    this.log("setCentre: rotateLeft = " + rotateLeft + ", rotateTop = " + rotateTop);
+ArghView.prototype.setCentre = function (x, y) {
+    this.log("setCentre: x = " + x + ", y = " + y);
+
+    // rotateLeft/Top are the distance from the top left-hand corner of the
+    // layer to the centre of rotation ... we need to map the screen x/y we are
+    // passed into layer space
+    var p = this.screen2layer([x, y]);
+    var rotateLeft = p[0];
+    var rotateTop = p[1];
+
+    this.log(" (rotateLeft = " + rotateLeft + ", rotateTop = " + rotateTop);
 
     // where does (0, 0) go to with the old rotate centre?
     var angle = 2 * Math.PI * this.angle / 360;
@@ -685,10 +719,10 @@ ArghView.prototype.setCentre = function (rotateLeft, rotateTop) {
     x = a * x2 + b * y2;
     y = c * x2 + d * y2;
 
-    x2 = x + this.rotateLeft;
-    y2 = y + this.rotateTop;
+    x2 = x + rotateLeft;
+    y2 = y + rotateTop;
 
-    // so we must adjust layerLeft / Top by the difference to keep all points
+    // so we must adjust layerLeft/Top by the difference to keep all points
     // the same
     var dx = x2 - x1;
     var dy = y2 - y1;
@@ -1109,7 +1143,7 @@ ArghView.prototype.draw = function () {
 
 // fetch the tiles we need to display the current viewport, and draw it
 ArghView.prototype.fetch = function () {
-    this.log("ArghView.fetch");
+    this.log("ArghView.fetch", {level: 1});
 
     this.time += 1;
     this.cacheTrim();

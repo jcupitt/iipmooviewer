@@ -1,3 +1,11 @@
+- switch to offset, affine, offset
+
+  store displace, rotate, rotate centre, but calculate affine from them
+
+  invert affine to get screen->layer fransform
+
+
+
 - zoom in max, rotate top to left (+90), scroll using nav window
 
   we scroll, but the display is drawn half off the top of the screen
