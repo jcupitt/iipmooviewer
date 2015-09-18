@@ -127,12 +127,6 @@ ArghView.prototype.layer2screen = function (point) {
     var x = point[0];
     var y = point[1];
 
-    x -= this.layerLeft;
-    y -= this.layerTop;
-
-    x /= this.shrink;
-    y /= this.shrink;
-
     x = x - this.rotateLeft;
     y = y - this.rotateTop;
 
@@ -148,6 +142,12 @@ ArghView.prototype.layer2screen = function (point) {
     x = x2 + this.rotateLeft;
     y = y2 + this.rotateTop;
 
+    x -= this.layerLeft;
+    y -= this.layerTop;
+
+    x /= this.shrink;
+    y /= this.shrink;
+
     return [x, y];
 }
 
@@ -156,6 +156,12 @@ ArghView.prototype.layer2screen = function (point) {
 ArghView.prototype.screen2layer = function (point) {
     var x = point[0];
     var y = point[1];
+
+    x *= this.shrink;
+    y *= this.shrink;
+
+    x += this.layerLeft;
+    y += this.layerTop;
 
     x = x - this.rotateLeft;
     y = y - this.rotateTop;
@@ -171,12 +177,6 @@ ArghView.prototype.screen2layer = function (point) {
 
     x = x2 + this.rotateLeft;
     y = y2 + this.rotateTop;
-
-    x *= this.shrink;
-    y *= this.shrink;
-
-    x += this.layerLeft;
-    y += this.layerTop;
 
     return [x, y];
 }
@@ -325,7 +325,7 @@ ArghView.prototype.bufferCreateDiscontinuous = function (points) {
     var gl = this.gl;
 
     if (points.length % 2 !== 0) {
-        console.log("bufferCreateDiscontinuous: not an even number of points");
+        this.log("bufferCreateDiscontinuous: not an even number of points");
     }
 
     var vertex = [];
@@ -600,10 +600,8 @@ ArghView.prototype.setPosition = function (x, y) {
     var new_x = layerRect.x;
     var new_y = layerRect.y;
 
-    new_x = Math.min(0, 
-        Math.max(this.viewportWidth - this.layerWidth, new_x));
-    new_y = Math.min(0, 
-        Math.max(this.viewportHeight - this.layerHeight, new_y));
+    new_x = Math.min(0, Math.max(this.viewportWidth - layerRect.w, new_x));
+    new_y = Math.min(0, Math.max(this.viewportHeight - layerRect.h, new_y));
 
     if (layerRect.w < this.viewportWidth) {
         new_x = (this.viewportWidth - layerRect.w) / 2;

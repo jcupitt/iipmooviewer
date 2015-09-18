@@ -1,8 +1,6 @@
-- switch to offset, affine, offset
+- 2 x reset , rotate left, break setPosition, rleft again
 
-  store displace, rotate, rotate centre, but calculate affine from them
-
-  invert affine to get screen->layer fransform
+  we're not applying the delta correctly when we map back to layer space?
 
 
 
