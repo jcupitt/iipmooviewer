@@ -1,11 +1,9 @@
-- fix tape measure on rotated images
+- double-click on annotation, only "delete" works, cancel and ok seem 
+  to do nothing?
 
 - get some tiles flashing during rotate animation
 
 - set textures to clip rather than wrap
-
-- double-click on annotation, only "delete" works, cancel and ok seem 
-  to do nothing?
 
 - doubleclick in nav tool trickes down into viewer and causes a zoom
 
