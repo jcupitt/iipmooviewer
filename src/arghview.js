@@ -747,11 +747,11 @@ ArghView.prototype.lineDraw = function (line) {
 
     // position on screen
     var p1 = this.layer2screen([line.x1, line.y1]);
-    x1 = p1[0];
-    y1 = this.viewportHeight - p1[1];
+    var x1 = p1[0];
+    var y1 = this.viewportHeight - p1[1];
     var p2 = this.layer2screen([line.x2, line.y2]);
-    x2 = p2[0];
-    y2 = this.viewportHeight - p2[1];
+    var x2 = p2[0];
+    var y2 = this.viewportHeight - p2[1];
 
     var dx = x2 - x1;
     var dy = y2 - y1;

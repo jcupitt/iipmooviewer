@@ -1328,7 +1328,8 @@ var IIPMooViewer = new Class({
     // enable RTI rendering, if necessary
     if (this.protocol.isRTI) {
       this.arghView.setRTI(true);
-      this.arghView.setScaleOffset(this.protocol.scale.slice(0, 3), 
+      this.arghView.setScaleOffset(
+        this.protocol.scale.slice(0, 3), 
         this.protocol.offset.slice(0, 3), 
         this.protocol.scale.slice(3, 6), 
         this.protocol.offset.slice(3, 6));
@@ -1406,7 +1407,7 @@ var IIPMooViewer = new Class({
   transformCoords: function( x, y ){
     // Calculate physical position using scale value
     if( this.scale ){
-      var text = Math.round(x*this.max_size.w/this.scale.pixelscale) +
+      var text = Math.round(x * this.max_size.w / this.scale.pixelscale) +
         this.scale.units.dims[this.scale.defaultUnit] + ', ' +
         Math.round(y*this.max_size.h/this.scale.pixelscale) +
         this.scale.units.dims[this.scale.defaultUnit];
@@ -1631,10 +1632,10 @@ var IIPMooViewer = new Class({
   toolStart: function (tool, e) {
     if (tool === 'tape') {
       var screen_point = [e.event.clientX, e.event.clientY];
-      var image_point = this.arghView.screen2image(screen_point);
+      var layer_point = this.arghView.screen2layer(screen_point);
 
-      this.line = {x1: image_point[0], y1: image_point[1], 
-              x2: image_point[0], y2: image_point[1]};
+      this.line = {x1: layer_point[0], y1: layer_point[1], 
+              x2: layer_point[0], y2: layer_point[1]};
       this.arghView.setLines([this.line]);
       this.arghView.draw();
     }
@@ -1652,10 +1653,10 @@ var IIPMooViewer = new Class({
     }
     else if (tool === 'tape') {
       var screen_point = [e.event.clientX, e.event.clientY];
-      var image_point = this.arghView.screen2image(screen_point);
+      var layer_point = this.arghView.screen2layer(screen_point);
 
       this.line = {x1: this.line.x1, y1: this.line.y1, 
-        x2: image_point[0], y2: image_point[1]};
+        x2: layer_point[0], y2: layer_point[1]};
       this.arghView.setLines([this.line]);
       this.arghView.draw();
     }
@@ -1665,7 +1666,8 @@ var IIPMooViewer = new Class({
     if (tool === 'tape') {
       var dx = this.line.x2 - this.line.x1;
       var dy = this.line.y2 - this.line.y1;
-      var length_px = Math.sqrt(dx * dx + dy * dy);
+      var scale = this.max_size.w / this.wid;
+      var length_px = scale * Math.sqrt(dx * dx + dy * dy);
 
       if (length_px > 0) {
         var units;
