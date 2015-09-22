@@ -306,8 +306,8 @@ var IIPMooViewer = new Class({
       this.canvas.setStyle(this.CSSprefix+'transform-origin', origin);
 
       this.arghView.setLayer(this.view.res);
-      this.log("requestImages: x = " + this.view.x + ", y = " + this.view.y);
-      this.arghView.setPosition(this.view.x, this.view.y);
+      this.log("requestImages: x = " + origin_x + ", y = " + origin_y);
+      this.arghView.setOrigin(origin_x, origin_y);
       this.arghView.fetch();
     }
 
@@ -438,9 +438,6 @@ var IIPMooViewer = new Class({
       this.rotationTween.cancel();
       this.rotationTween = null;
     }
-
-    // rotate about the centre of the viewport
-    _this.arghView.setCentre(_this.view.w / 2, _this.view.h / 2);
 
     this.rotationTween = new IIPJSTween(
       function (value) {

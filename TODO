@@ -1,50 +1,17 @@
-- 2 x reset , rotate left, break setPosition, rleft again
+- fix tape measure on rotated images
 
-  we're not applying the delta correctly when we map back to layer space?
+- get some tiles flashing during rotate animation
 
+- set textures to clip rather than wrap
 
-
-- zoom in max, rotate top to left (+90), scroll using nav window
-
-  we scroll, but the display is drawn half off the top of the screen
-
-  we are setting layerLeft/Top correctly (eg. 0, 900 to display about halfway
-  down), but:
-
-    var layerRect = this.visibleLayerRect();
-
-  in .draw() is not working. We do:
-
-    start with viewport {x: 0, y: 0, w: 393, h: 1103}
-
-    rotate -90 about viewport centre gives {x: -355, y: 1421, w: 1103, h: 393}
-
-    translate by layerLeft/Top gives {x: -355, y: 500, w: 1103, h: 393}
-
-  
-
-
-
-- drag no longer works on rotated images
-
-- double-click on annotation, only "delete" worksw, cancel and ok seem 
-  to do nothing
-
-
-
-- drag while rotated is not working
-
-	we need to sort out what the coordinates given to setPosition mean,
-	and how they are affected by rotation
-
-	this will feed into smooth scaling too: generally, how do we
-	transform to image space from screen space
+- double-click on annotation, only "delete" works, cancel and ok seem 
+  to do nothing?
 
 - doubleclick in nav tool trickes down into viewer and causes a zoom
 
-- screen2image / image2screen could be much faster
+- screen2layer / layer2screen could be much faster
 
-- add culling: we currently draw all layers from the back, we could skip tiles we know muct be complete obscured by
-  higher-res tiles
+- add culling: we currently draw all layers from the back, we could skip 
+  tiles we know muct be complete obscured by higher-res tiles
 
   would fix 10x overdraw in some cases

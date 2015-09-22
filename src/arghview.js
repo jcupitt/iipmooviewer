@@ -18,8 +18,8 @@ var ArghView = function (canvas) {
     canvas.arghView = this;
 
     // in debug mode, we draw some extra stuff, and also log a lot of messages
-    this.debug = true;
-    //this.debug = false;
+    //this.debug = true;
+    this.debug = false;
 
     // set by setSource() below ... these come from iipmooviewer
     this.tileURL = null;
@@ -575,54 +575,31 @@ ArghView.prototype.visibleLayerRect = function () {
     return this.normaliseRect(layerRect);
 }
 
-/* Public: set the position of the viewport within the larger image. The
- * coordinates are in the current layer's coordinates.
- *
- * If we are zoomed out far enough that the image is smaller than the 
- * viewport, centre the image.  
+/* Public: set the transform-origin. We put the specified position, 
+ * in layer coordinates, in the centre of the viewport.
  */
-ArghView.prototype.setPosition = function (x, y) {
-    this.log("ArghView.setPosition: x = " + x + ", y = " + y);
+ArghView.prototype.setOrigin = function (x, y) {
+    this.log("ArghView.setOrigin: x = " + x + ", y = " + y);
 
     this.time += 1;
 
-    // set the position, then translate the layer geometry to screen space for
-    // any clipping or centring
-    this.layerLeft = x;
-    this.layerTop = y;
+    // this will be the centre for any rotation
+    this.rotateLeft = x;
+    this.rotateTop = y; 
 
-    // the layer as a rect 
-    var layerRect = {x: 0, y: 0, w: this.layerWidth, h: this.layerHeight};
-    layerRect = this.transformRect(this.layer2screen.bind(this), layerRect);
-    layerRect = this.normaliseRect(layerRect);
+    // position at (0, 0) then try transforming the new (x, y) ... the distance
+    // that ends up from the centre of the screen is the value we need for
+    // layerLeft/Top
+    this.layerLeft = 0;
+    this.layerTop = 0;
 
-    // how do we need to move layerRect to centre and constrain?
-    var new_x = layerRect.x;
-    var new_y = layerRect.y;
+    var p = this.layer2screen([x, y]);
 
-    new_x = Math.min(0, Math.max(this.viewportWidth - layerRect.w, new_x));
-    new_y = Math.min(0, Math.max(this.viewportHeight - layerRect.h, new_y));
+    var dx = p[0] - this.viewportWidth / 2;
+    var dy = p[1] - this.viewportHeight / 2;
 
-    if (layerRect.w < this.viewportWidth) {
-        new_x = (this.viewportWidth - layerRect.w) / 2;
-    }
-    if (layerRect.h < this.viewportHeight) {
-        new_y = (this.viewportHeight - layerRect.h) / 2;
-    }
-
-    // what's the delta we need
-    var dx = layerRect.x - new_x;
-    var dy = layerRect.y - new_y;
-
-    // translate that delta back to layer space ... we need to take (0, 0) in
-    // layer space to screen space, apply the delta, go back to layer
-    var p = this.layer2screen([0, 0]);
-    p[0] += dx;
-    p[1] += dy;
-    var layer_delta = this.screen2layer(p);
-
-    this.layerLeft += layer_delta[0];
-    this.layerTop += layer_delta[1];
+    this.layerLeft = dx;
+    this.layerTop = dy;
 
     this.log("  (position set to " + this.layerLeft + 
             ", " + this.layerTop + ")");
@@ -675,62 +652,6 @@ ArghView.prototype.setScaleOffset =
  */
 ArghView.prototype.setLines = function (lines) {
     this.lines = lines;
-}
-
-/* Public ... set the centre of rotation, in screen coordinates. We call this 
- * when one of the rotate buttons is pushed and give it the centre of the 
- * viewport. When we tween setAngle() after this, the screen will spin 
- * around this point.
- */
-ArghView.prototype.setCentre = function (x, y) {
-    this.log("setCentre: x = " + x + ", y = " + y);
-
-    // rotateLeft/Top are the distance from the top left-hand corner of the
-    // layer to the centre of rotation ... we need to map the screen x/y we are
-    // passed into layer space
-    var p = this.screen2layer([x, y]);
-    var rotateLeft = p[0];
-    var rotateTop = p[1];
-
-    this.log(" (rotateLeft = " + rotateLeft + ", rotateTop = " + rotateTop);
-
-    // where does (0, 0) go to with the old rotate centre?
-    var angle = 2 * Math.PI * this.angle / 360;
-    var a = Math.cos(angle);
-    var b = -Math.sin(angle);
-    var c = -b;
-    var d = a;
-
-    var x1 = -this.rotateLeft;
-    var y1 = -this.rotateTop;
-
-    var x = a * x1 + b * y1;
-    var y = c * x1 + d * y1;
-
-    x1 = x + this.rotateLeft;
-    y1 = y + this.rotateTop;
- 
-    // where does (0, 0) go to with the new rotate centre?
-    var x2 = -rotateLeft;
-    var y2 = -rotateTop;
-
-    x = a * x2 + b * y2;
-    y = c * x2 + d * y2;
-
-    x2 = x + rotateLeft;
-    y2 = y + rotateTop;
-
-    // so we must adjust layerLeft/Top by the difference to keep all points
-    // the same
-    var dx = x2 - x1;
-    var dy = y2 - y1;
-    this.layerLeft += dx;
-    this.layerTop += dy;
-
-    this.log(" (dx = " + dx + ", dy = " + dy);
-
-    this.rotateLeft = rotateLeft;
-    this.rotateTop = rotateTop; 
 }
 
 /* Public ... set the rotation angle. In degrees, positive values are
@@ -1064,9 +985,6 @@ ArghView.prototype.draw = function () {
         gl.canvas.height = height;
         this.viewportWidth = width;
         this.viewportHeight = height;
-
-        // we may need to recentre
-        this.setPosition(this.layerLeft, this.layerTop);
     }
 
     if (this.RTI) {
