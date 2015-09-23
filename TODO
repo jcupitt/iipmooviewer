@@ -1,7 +1,17 @@
 - double-click on annotation, only "delete" works, cancel and ok seem 
   to do nothing?
 
+  not a problem in annotations-edit.js, putting the master version back 
+  does not fix it ... something about event handing in iipmooviewer?
+
+- need to recentre on resize
+
 - get some tiles flashing during rotate animation
+
+  example: 
+
+	angle = 15.4 degrees, rh column of tiles not drawn
+	angle = 15.3 degrees, column is drawn
 
 - set textures to clip rather than wrap
 

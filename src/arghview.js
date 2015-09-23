@@ -18,8 +18,8 @@ var ArghView = function (canvas) {
     canvas.arghView = this;
 
     // in debug mode, we draw some extra stuff, and also log a lot of messages
-    //this.debug = true;
-    this.debug = false;
+    this.debug = true;
+    //this.debug = false;
 
     // set by setSource() below ... these come from iipmooviewer
     this.tileURL = null;
@@ -77,7 +77,7 @@ var ArghView = function (canvas) {
     //
     // we support any angle, since we animate rotation changes, but this
     // will normally be 0, 90, 180, 270
-    this.angle = 0;
+    this.angle = 15.4;
     this.rotateLeft = 0;
     this.rotateTop = 0;
 
@@ -113,7 +113,7 @@ ArghView.prototype.log = function (str, options) {
     var level = options.level || 2;
 
     // higher numbers mean more important messages  
-    var loggingLevel = 2;
+    var loggingLevel = 1;
 
     if (this.debug &&
         level >= loggingLevel) {
