@@ -523,7 +523,6 @@ var IIPMooViewer = new Class({
       else {
         this.container.getElements('div.message').destroy();
       }
-      this.reload();
     }
   },
 
@@ -1421,76 +1420,87 @@ var IIPMooViewer = new Class({
   /* Change our image and reload our view
    */
   changeImage: function( image ){
+    this.log("changeImage:");
 
     // Replace our image array
-    this.images = [{ src:image, sds:"0,90", cnt:(this.viewport&&this.viewport.contrast!==null)? this.viewport.contrast : null } ];
+    this.images = [{
+      src: image, 
+      sds: "0,90", 
+      cnt: (this.viewport && this.viewport.contrast !== null) ? 
+          this.viewport.contrast : null 
+    }];
 
     // Send a new AJAX request for the metadata
     var metadata = new Request({
       method: 'get',
-      url: this.protocol.getMetaDataURL( this.server, this.images[0].src ),
-      onComplete: function(transport){
-        var response = transport || alert( "Error: No response from server " + this.server );
+      url: this.protocol.getMetaDataURL(this.server, this.images[0].src),
+      onComplete: function (transport) {
+        var response = transport || 
+          alert("Error: No response from server " + this.server);
 
         // Parse the result
-        var result = this.protocol.parseMetaData( response );
+        var result = this.protocol.parseMetaData(response);
         this.max_size = result.max_size;
         this.tileSize = result.tileSize;
         this.num_resolutions = result.num_resolutions;
 
         this.reload();
 
-        if( this.navigation ) this.navigation.setImage( this.protocol.getThumbnailURL( this.server, image, this.navigation.size.x ) );
-
+        if (this.navigation) {
+          this.navigation.setImage(this.protocol.getThumbnailURL(this.server, image, this.navigation.size.x));
+        }
       }.bind(this),
-        onFailure: function(){ alert('Error: Unable to get image metadata from server!'); }
-    } );
+      onFailure: function () { 
+        alert('Error: Unable to get image metadata from server!'); 
+      }
+    });
 
-    // Send the metadata request
     metadata.send();
   },
 
-
-
   /* Use an AJAX request to get the image size, tile size and number of resolutions from the server
    */
-  load: function(){
+  load: function () {
+    this.log("load:");
 
     // If we have supplied the relevent information, simply use the given data
-    if( this.loadoptions ){
+    if (this.loadoptions) {
       this.max_size = this.loadoptions.size;
       this.tileSize = this.loadoptions.tiles;
       this.num_resolutions = this.loadoptions.resolutions;
       this.createWindows();
     }
-    else{
+    else {
       var metadata = new Request({
         method: 'get',
-        url: this.protocol.getMetaDataURL( this.server, this.images[0].src ),
-        onComplete: function(transport){
-          var response = transport || alert( "Error: No response from server " + this.server );
+        url: this.protocol.getMetaDataURL(this.server, this.images[0].src),
+        onComplete: function (transport) {
+          var response = transport || 
+            alert("Error: No response from server " + this.server);
 
           // Parse the result
           var result = this.protocol.parseMetaData( response ) ||
-            alert( "Error: Unexpected response from server " + this.server );
+            alert("Error: Unexpected response from server " + this.server);
           this.max_size = result.max_size;
           this.tileSize = result.tileSize;
           this.num_resolutions = result.num_resolutions;
 
           this.createWindows();
         }.bind(this),
-        onFailure: function(){ alert('Error: Unable to get image metadata from server!'); }
+        onFailure: function () { 
+          alert('Error: Unable to get image metadata from server!'); 
+        }
       });
 
-      // Send the metadata request
       metadata.send();
     }
   },
 
-
   /* Reflow our viewer after a resize
    */
   reflow: function () {
+    this.log("reflow:");
+
     this.containerPosition = this.container.getPosition();
     var target_size = this.container.getSize();
     this.view.w = target_size.x;
@@ -1518,33 +1528,38 @@ var IIPMooViewer = new Class({
     });
 
     // Update images
-    this.requestImages();
-    this.updateNavigation();
-
     this.constrain();
+    this.updateNavigation();
+    this.requestImages();
   },
-
 
   /* Reload our view
    */
-  reload: function(){
+  reload: function () {
+    this.log("reload:");
 
     // First cancel any effects on the canvas 
     this.canvas.get('morph').cancel();
     this.calculateSizes();
 
     // Resize the main tile canvas
-    if( this.viewport && this.viewport.resolution!==null ){
+    if (this.viewport && this.viewport.resolution !== null) {
       this.view.res = this.viewport.resolution;
       this.wid = this.resolutions[this.view.res].w;
       this.hei = this.resolutions[this.view.res].h;
-      if( this.touch ) this.touch.options.limit = { x: Array(this.view.w-this.wid,0), y: Array(this.view.h-this.hei,0) };
+      if (this.touch) {
+        this.touch.options.limit = {x: Array(this.view.w - this.wid, 0), 
+                                    y: Array(this.view.h - this.hei, 0)};
+      }
     }
+
     // Center our view or move to initial viewport position
-    if( this.viewport && this.viewport.x!==null && this.viewport.y!==null ){
-      this.centerTo( this.viewport.x, this.viewport.y );
+    if (this.viewport && this.viewport.x !== null && this.viewport.y !== null) {
+      this.centerTo(this.viewport.x, this.viewport.y);
     }
-    else this.recenter();
+    else {
+      this.recenter();
+    }
 
     this.setLightPosition(0, 0);
 
@@ -1553,21 +1568,22 @@ var IIPMooViewer = new Class({
       height: this.hei
     });
 
-
     this.reflow();
 
     // Set initial rotation - do this after a reflow as requestimages resets rotation to zero
-    if( this.viewport && this.viewport.rotation!==null ){
-      this.rotate( this.viewport.rotation );
+    if (this.viewport && this.viewport.rotation !== null) {
+      this.rotate(this.viewport.rotation);
     }
-    else this.rotate(0);
-
+    else {
+      this.rotate(0);
+    }
   },
-
 
   /* Recenter the image view
    */
   recenter: function(){
+    this.log("recenter:");
+
     // Calculate the x,y for a centered view, making sure we have no negative
     // in case our resolution is smaller than the viewport
     var xoffset = Math.round((this.wid - this.view.w) / 2);
@@ -1584,6 +1600,8 @@ var IIPMooViewer = new Class({
   /* Constrain the movement of our canvas to our containing div
    */
   constrain: function () {
+    this.log("constrain:");
+
     var ax = this.wid < this.view.w ? 
       Array(Math.round((this.view.w - this.wid) / 2), Math.round((this.view.w - this.wid) / 2)) : 
       Array(this.view.w - this.wid, 0);
@@ -1592,13 +1610,15 @@ var IIPMooViewer = new Class({
       Array(this.view.h - this.hei, 0);
 
     if (this.touch) {
-      this.touch.options.limit = { x: ax, y: ay };
+      this.touch.options.limit = {x: ax, y: ay};
     }
   },
 
   /* Correctly position the canvas, taking into account images smaller than the viewport
    */
   positionCanvas: function () {
+    this.log("positionCanvas:");
+
     this.canvas.setStyles({
       left: (this.wid > this.view.w) ? 
         -this.view.x : 

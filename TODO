@@ -4,9 +4,15 @@
   not a problem in annotations-edit.js, putting the master version back 
   does not fix it ... something about event handing in iipmooviewer?
 
-- need to recentre on resize
+- need to recentre on fullscreen / notfullscreen
 
-- doubleclick in nav tool trickes down into viewer and causes a zoom
+  can't fix this without changing iipmooviewer ... we need to sort out the
+  canvas positioning and scrolling code
+
+- drag on rotated image does not work
+
+  can't fix this without changing iipmooviewer ... we need to sort out the
+  canvas positioning and scrolling code
 
 - screen2layer / layer2screen could be much faster
 

@@ -171,7 +171,12 @@ var Navigation = new Class({
 
       // we want to stop mousedown on the buttons reaching our parent .. it can 
       // trigger actions like light movement
-      navbuttons.addEvent('mousedown', function (e) { e.stop(); });
+      navbuttons.addEvent('mousedown', function (e) { 
+        e.stop(); 
+      });
+      navbuttons.addEvent('dblclick', function (e) { 
+        e.stop(); 
+      });
     }
 
     // add our set of tool buttons ... only one can be active, the name of
