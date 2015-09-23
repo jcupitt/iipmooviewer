@@ -4,6 +4,8 @@
   not a problem in annotations-edit.js, putting the master version back 
   does not fix it ... something about event handing in iipmooviewer?
 
+  the buttons work if you click "new annotation", strange
+
 - need to recentre on fullscreen / notfullscreen
 
   can't fix this without changing iipmooviewer ... we need to sort out the
