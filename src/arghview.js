@@ -18,8 +18,8 @@ var ArghView = function (canvas) {
     canvas.arghView = this;
 
     // in debug mode, we draw some extra stuff, and also log a lot of messages
-    this.debug = true;
-    //this.debug = false;
+    //this.debug = true;
+    this.debug = false;
 
     // set by setSource() below ... these come from iipmooviewer
     this.tileURL = null;
@@ -77,7 +77,7 @@ var ArghView = function (canvas) {
     //
     // we support any angle, since we animate rotation changes, but this
     // will normally be 0, 90, 180, 270
-    this.angle = 15.4;
+    this.angle = 0;
     this.rotateLeft = 0;
     this.rotateTop = 0;
 
@@ -183,12 +183,31 @@ ArghView.prototype.screen2layer = function (point) {
 
 /* Public: transform a rect with a point transformer (eg. screen2layer).
  */
-ArghView.prototype.transformRect = function (fn, rect) {
-    // the diagional corners
-    var p1 = fn([rect.x, rect.y]);
-    var p2 = fn([rect.x + rect.w, rect.y + rect.h]);
 
-    return {x: p1[0], y: p1[1], w: p2[0] - p1[0], h: p2[1] - p1[1]}; 
+ArghView.prototype.transformRect = function (fn, rect) {
+    // the four corners
+    var p = [[rect.x, rect.y],
+             [rect.x + rect.w, rect.y],
+             [rect.x, rect.y + rect.h],
+             [rect.x + rect.w, rect.y + rect.h]];
+
+    var p1 = Array(p.length);
+    for (var i = 0; i < p.length; i++) {
+        p1[i] = fn(p[i]);
+    }
+
+    var left = p1[0][0];
+    var top = p1[0][1];
+    var right = p1[0][0];
+    var bottom = p1[0][1];
+    for (var i = 1; i < p1.length; i++) {
+        left = Math.min(left, p1[i][0]);
+        top = Math.min(top, p1[i][1]);
+        right = Math.max(right, p1[i][0]);
+        bottom = Math.max(bottom, p1[i][1]);
+    }
+
+    return {x: left, y: top, w: right - left, h: bottom - top}; 
 }
 
 /* Public: normalise a rect, so width and/or height are always positive. 
@@ -876,6 +895,8 @@ ArghView.prototype.loadTexture = function (url) {
 
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 

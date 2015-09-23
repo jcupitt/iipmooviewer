@@ -6,15 +6,6 @@
 
 - need to recentre on resize
 
-- get some tiles flashing during rotate animation
-
-  example: 
-
-	angle = 15.4 degrees, rh column of tiles not drawn
-	angle = 15.3 degrees, column is drawn
-
-- set textures to clip rather than wrap
-
 - doubleclick in nav tool trickes down into viewer and causes a zoom
 
 - screen2layer / layer2screen could be much faster
