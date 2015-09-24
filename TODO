@@ -1,10 +1,10 @@
-- double-click on annotation, only "delete" works, cancel and ok seem 
-  to do nothing?
+- edit annotation window is rotated if image is rotated
 
-  not a problem in annotations-edit.js, putting the master version back 
-  does not fix it ... something about event handing in iipmooviewer?
+  annotation tips are not rotated, how is this done?
 
-  the buttons work if you click "new annotation", strange
+- test sync mode
+
+- test blend mode, might not be possible
 
 - need to recentre on fullscreen / notfullscreen
 

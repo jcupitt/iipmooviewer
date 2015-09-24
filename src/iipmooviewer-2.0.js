@@ -260,19 +260,36 @@ var IIPMooViewer = new Class({
 
     // CSS3: Need to prefix depending on browser. Cannot handle IE<9
     this.CSSprefix = '';
-    if( Browser.name==='firefox' ) this.CSSprefix = '-moz-';
-    else if( Browser.name==='chrome' || Browser.name==='safari' || Browser.platform==='ios' ) this.CSSprefix = '-webkit-';
-    else if( Browser.name==='opera' ) this.CSSprefix = '-o-';
-    else if( Browser.name==='ie' ) this.CSSprefix = 'ms-';  // Note that there should be no leading "-" !!
+    if (Browser.name==='firefox') {
+      this.CSSprefix = '-moz-';
+    }
+    else if (Browser.name==='chrome' || 
+             Browser.name==='safari' || 
+             Browser.platform==='ios') {
+      this.CSSprefix = '-webkit-';
+    }
+    else if (Browser.name==='opera') {
+      this.CSSprefix = '-o-';
+    }
+    else if (Browser.name==='ie') {
+      this.CSSprefix = 'ms-';  // Note that there should be no leading "-" !!
+    }
 
-    // Override the `show` method of the Tips class so that tips are children of the image-viewer container.
-    // This is needed so when the image-viewer container is "fullscreened", tips still show.
+    // Override the `show` method of the Tips class so that tips are children 
+    // of the image-viewer container. This is needed so when the image-viewer 
+    // container is "fullscreened", tips still show.
     var _this = this;
     Tips = new Class({
       Extends: Tips,
-      show: function(element){
-        if (!this.tip) document.id(this);
-        if (!this.tip.getParent()) this.tip.inject(document.id(_this.source));
+      show: function (element) {
+        if (!this.tip) {
+          document.id(this);
+        }
+
+        if (!this.tip.getParent()) {
+          this.tip.inject(document.id(_this.source));
+        }
+
         this.fireEvent('show', [this.tip, element]);
       }
     });
@@ -1388,32 +1405,40 @@ var IIPMooViewer = new Class({
     this.fireEvent('load');
   },
 
-
   /* Generic function to update coordinates
    */
-  updateCoords: function(e){
-    if( !this.navigation || !this.navigation.coords ) return;
-    // Calculate position taking into account images smaller than our view
-    var x = e.page.x - this.containerPosition.x + this.view.x - ((this.wid<this.view.w) ? Math.round((this.view.w-this.wid)/2) : 0);
-    var y = e.page.y - this.containerPosition.y + this.view.y - ((this.hei<this.view.h) ? Math.round((this.view.h-this.hei)/2) : 0);
-    var text = this.transformCoords( x/this.wid, y/this.hei );
-    this.navigation.setCoords( text );
-  },
+  updateCoords: function (e) {
+    if (!this.navigation || !this.navigation.coords)  {
+      return;
+    }
 
+    // Calculate position taking into account images smaller than our view
+    var x = e.page.x - this.containerPosition.x + this.view.x - 
+      ((this.wid < this.view.w) ? Math.round((this.view.w - this.wid) / 2) : 0);
+    var y = e.page.y - this.containerPosition.y + this.view.y - 
+      ((this.hei < this.view.h) ? Math.round((this.view.h - this.hei) / 2) : 0);
+
+    var text = this.transformCoords(x / this.wid, y / this.hei);
+
+    this.navigation.setCoords(text);
+  },
 
   /* Transform resolution independent coordinates to coordinate system
    */
-  transformCoords: function( x, y ){
-    // Calculate physical position using scale value
-    if( this.scale ){
+  transformCoords: function (x, y) {
+    if (this.scale) {
+      // Calculate physical position using scale value
       var text = Math.round(x * this.max_size.w / this.scale.pixelscale) +
         this.scale.units.dims[this.scale.defaultUnit] + ', ' +
         Math.round(y*this.max_size.h/this.scale.pixelscale) +
         this.scale.units.dims[this.scale.defaultUnit];
       return text;
     }
-    // Return raw pixel values
-    else return Math.round(x*this.wid) + 'px, ' + Math.round(y*this.hei) + 'px';
+    else {
+      // Return raw pixel values
+      return Math.round(x * this.wid) + 'px, ' + 
+        Math.round(y * this.hei) + 'px';
+    }
   },
 
 
