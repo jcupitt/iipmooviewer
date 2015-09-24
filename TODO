@@ -1,3 +1,6 @@
+- touch interface ... touch.js directly changes the CSS transforms with a
+  different code path, yuk!!
+
 - edit annotation window is rotated if image is rotated
 
   annotation tips are not rotated, how is this done?
@@ -7,7 +10,7 @@
 
   it's positioned absolutely, how is the position calculated?
 
-  from the stored anotation position, but how does it map from the canvas
+  from the stored annotation position, but how does it map from the canvas
   position to the absolute screen position?
 
 - test sync mode

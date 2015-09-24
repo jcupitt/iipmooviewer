@@ -123,14 +123,21 @@ IIPMooViewer.implement({
             top = _this.hei > _this.view.h ? 
                 _this.touchend.y - _this.touchstart.y : 0;
 
-            var transform = 'translate3d(' + left + 'px,' + top + 'px, 0 )';
+            var transform = 'translate3d(' + left + 'px,' + top + 'px, 0)';
 
-            _this.canvas.setStyle (_this.CSSprefix+'transform', transform);
+            _this.canvas.setStyle(_this.CSSprefix+'transform', transform);
 
             // we update the view.x at the end of the drag ... during the 
             // drag, just give the tile viewer the position to keep the 
             // screen updated
-            _this.arghView.setPosition(view_x, view_y);
+            var origin_x = _this.wid > _this.view.w ? 
+              Math.round(view_x + _this.view.w / 2) : 
+              Math.round(_this.wid / 2);
+            var origin_y = _this.hei > _this.view.h ? 
+              Math.round(view_y + _this.view.h / 2) : 
+              Math.round(_this.hei / 2);
+
+            _this.arghView.setOrigin(origin_x, origin_y); 
             _this.arghView.fetch();
           }
           else if (e.touches.length == 2) {
@@ -148,7 +155,7 @@ IIPMooViewer.implement({
             var yy = Math.round((e.touches[0].pageY + e.touches[1].pageY) / 2) +
                 _this.view.y;
             var origin = xx + 'px,' + yy + 'px';
-            _this.canvas.setStyle( this.CSSprefix+'transform-origin', origin );
+            _this.canvas.setStyle(this.CSSprefix+'transform-origin', origin);
           }
         },
 
@@ -226,10 +233,10 @@ IIPMooViewer.implement({
             _this.touchend = null;
 
             if (_this.view.x > _this.wid - _this.view.w) {
-              _this.view.x = _this.wid-_this.view.w;
+              _this.view.x = _this.wid - _this.view.w;
             }
             if (_this.view.y > _this.hei - _this.view.h) {
-              _this.view.y = _this.hei-_this.view.h;
+              _this.view.y = _this.hei - _this.view.h;
             }
 
             if (_this.view.x < 0) {
@@ -240,7 +247,7 @@ IIPMooViewer.implement({
             }
 
             // Need to reset transform to none
-            _this.canvas.setStyle (_this.CSSprefix+'transform', 'none');
+            _this.canvas.setStyle(_this.CSSprefix+'transform', 'none');
             _this.canvas.setStyles({
               left: _this.wid > _this.view.w ? 
                   -_this.view.x : Math.round((_this.view.w - _this.wid) / 2), 

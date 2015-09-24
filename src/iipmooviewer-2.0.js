@@ -302,31 +302,20 @@ var IIPMooViewer = new Class({
    */
   requestImages: function () {
     // Set our rotation origin - calculate differently if canvas is smaller than view port
-    if (!Browser.buggy) {
-      var view = this.getView();
-      var wid = this.wid;
-      var hei = this.hei;
+    var origin_x = this.wid > this.view.w ? 
+      Math.round(this.view.x + this.view.w / 2) : 
+      Math.round(this.wid / 2);
+    var origin_y = this.hei > this.view.h ? 
+      Math.round(this.view.y + this.view.h / 2) : 
+      Math.round(this.hei / 2);
 
-      // Adjust width and height if we have a 90 or -90 rotation
-      if (this.view.rotation_normalized % 180 === 90) {
-        wid = this.hei;
-        hei = this.wid;
-      }
+    var origin = origin_x + "px " + origin_y + "px";
+    this.canvas.setStyle(this.CSSprefix+'transform-origin', origin);
 
-      var origin_x = this.wid > this.view.w ? 
-        Math.round(this.view.x + this.view.w / 2) : 
-        Math.round(this.wid / 2);
-      var origin_y = this.hei > this.view.h ? 
-        Math.round(this.view.y + this.view.h / 2) : 
-        Math.round(this.hei / 2);
-      var origin = origin_x + "px " + origin_y + "px";
-      this.canvas.setStyle(this.CSSprefix+'transform-origin', origin);
-
-      this.arghView.setLayer(this.view.res);
-      this.log("requestImages: x = " + origin_x + ", y = " + origin_y);
-      this.arghView.setOrigin(origin_x, origin_y);
-      this.arghView.fetch();
-    }
+    this.arghView.setLayer(this.view.res);
+    this.log("requestImages: x = " + origin_x + ", y = " + origin_y);
+    this.arghView.setOrigin(origin_x, origin_y);
+    this.arghView.fetch();
 
     // Create new annotations and attach the tooltip to them if it already 
     // exists
