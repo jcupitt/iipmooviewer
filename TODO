@@ -2,6 +2,14 @@
 
   annotation tips are not rotated, how is this done?
 
+  annotation tip is a child of viewer (a peer of scale etc) and so is not
+  affected by the rotate transform
+
+  it's positioned absolutely, how is the position calculated?
+
+  from the stored anotation position, but how does it map from the canvas
+  position to the absolute screen position?
+
 - test sync mode
 
 - test blend mode, might not be possible

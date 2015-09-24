@@ -328,7 +328,8 @@ var IIPMooViewer = new Class({
       this.arghView.fetch();
     }
 
-    // Create new annotations and attach the tooltip to them if it already exists
+    // Create new annotations and attach the tooltip to them if it already 
+    // exists
     if (this.annotations) {
       this.drawAnnotations();
       if (this.annotationTip) {
