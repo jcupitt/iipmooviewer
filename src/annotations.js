@@ -57,8 +57,8 @@ IIPMooViewer.implement({
       annotation_array.push(annotation);
     });
 
-    // sort our annotations by size to make sure it's always possible to interact
-    // with annotations within annotations
+    // sort our annotations by size to make sure it's always possible to 
+    // interact with annotations within annotations
     annotation_array.sort(
       function (a, b) { 
         return (b.w * b.h) - (a.w * a.h); 
@@ -75,11 +75,8 @@ IIPMooViewer.implement({
       return;
     }
 
-    // Now go through our sorted list and display those within the view
-    var annotation_item, i = 0, l = this.annotation_array.length;
-
-    for (; i < l; i++) {
-      annotation_item = this.annotation_array[i];
+    for (var i = 0; i < this.annotation_array.length; i++) {
+      var annotation_item = this.annotation_array[i];
 
       var position = {
         left: Math.round(this.wid * annotation_item.x),
@@ -97,7 +94,7 @@ IIPMooViewer.implement({
       }
     }
 
-    if( !this.annotationTip ){
+    if (!this.annotationTip) {
       this.annotationTip = this.createAnnotationsTips();
     }
   },
@@ -118,7 +115,7 @@ IIPMooViewer.implement({
     }
 
     // Add edit events to annotations if we have included the functions
-    if (typeof(this.editAnnotation) == "function") {
+    if (typeof(this.editAnnotation) === "function") {
       var _this = this;
 
       annotation.addEvent('dblclick', function (e) {
@@ -129,11 +126,19 @@ IIPMooViewer.implement({
       });
 
       annotation.addEvent('click', function (e) {
-        if (annotation_item.light_x != null && annotation_item.light_y != null) { 
+        // don't change the light position if we are editing the annotation ...
+        // the event.stop() would stop the dialog's buttons working
+        if (annotation_item.edit) {
+          return;
+        }
+
+        if (annotation_item.light_x !== null && 
+          annotation_item.light_y !== null) { 
           var event = new DOMEvent(e);
           event.stop();
 
-          _this.setLightPosition(annotation_item.light_x, annotation_item.light_y);
+          _this.setLightPosition(annotation_item.light_x, 
+            annotation_item.light_y);
           _this.arghView.draw();
         }
       });
@@ -164,16 +169,16 @@ IIPMooViewer.implement({
           display: 'block'
         }).fade(0.9);
 
-        // Prevent the tip from fading when we are hovering on the tip itself and not
-        // just when we leave the annotated zone
+        // Prevent the tip from fading when we are hovering on the tip 
+        // itself and not just when we leave the annotated zone
         tip.addEvents({
-          'mouseleave': function () {
+          mouseleave: function () {
             this.active = false;
-            this.fade('out').get('tween').chain(function() {
+            this.fade('out').get('tween').chain(function () {
               this.element.setStyle('display', 'none');
             });
           },
-          'mouseenter': function () {
+          mouseenter: function () {
             this.active = true;
           }
         });
@@ -191,7 +196,7 @@ IIPMooViewer.implement({
 
   /* Toggle visibility of any annotations
    */
-  toggleAnnotations: function() {
+  toggleAnnotations: function () {
     var els = this.canvas.getElements('div.annotation');
     if (els) {
       if (this.annotationsVisible) {

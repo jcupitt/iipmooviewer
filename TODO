@@ -1,10 +1,21 @@
-- double-click on annotation, only "delete" works, cancel and ok seem 
-  to do nothing?
+- touch interface ... touch.js directly changes the CSS transforms with a
+  different code path, yuk!!
 
-  not a problem in annotations-edit.js, putting the master version back 
-  does not fix it ... something about event handing in iipmooviewer?
+- edit annotation window is rotated if image is rotated
 
-  the buttons work if you click "new annotation", strange
+  annotation tips are not rotated, how is this done?
+
+  annotation tip is a child of viewer (a peer of scale etc) and so is not
+  affected by the rotate transform
+
+  it's positioned absolutely, how is the position calculated?
+
+  from the stored annotation position, but how does it map from the canvas
+  position to the absolute screen position?
+
+- test sync mode
+
+- test blend mode, might not be possible
 
 - need to recentre on fullscreen / notfullscreen
 
