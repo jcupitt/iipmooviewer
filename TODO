@@ -1,3 +1,31 @@
+- need a model-view structure for iipmooviewer
+
+  this.view
+
+    model ... set this, then call this.updateView()
+
+  this.state
+
+    a copy of ^^ with the values we last set on the view ... on updateView()
+    we compare the model to the last set values in state and issue any updates
+
+    do optional tweening with this mechanism too
+
+    update any sync'd views as well
+
+
+
+
+- see onToolChange: in initialize: ... we should not turn turn touch on and
+  off like that, instead touch should call toolStart() etc. 
+
+  rename toolStart/Move/Stop as actionStart/Move/Stop and have that doing
+  panning as well
+
+
+
+
+
 - touch interface ... touch.js directly changes the CSS transforms with a
   different code path, yuk!!
 

@@ -104,29 +104,39 @@ var IIPMooViewer = new Class({
   initialize: function( main_id, options ) {
     this.log("initialize: main_id = " + main_id + ", options = " + options);
 
-    this.source = main_id || alert( 'No element ID given to IIPMooViewer constructor' );
+    this.source = main_id || 
+      alert( 'No element ID given to IIPMooViewer constructor' );
 
     this.server = options.server || '/fcgi-bin/iipsrv.fcgi';
 
     this.render = options.render || 'spiral';
 
-    // Set the initial zoom resolution and viewport - if it's not been set manually, check for a hash tag
+    // Set the initial zoom resolution and viewport - if it's not been set 
+    // manually, check for a hash tag
     this.viewport = null;
     if (options.viewport) {
       this.viewport = {
-        resolution: ('resolution' in options.viewport) ? parseInt(options.viewport.resolution) : null,
-        rotation: ('rotation' in options.viewport) ? parseInt(options.viewport.rotation) : null,
-        contrast: ('contrast' in options.viewport) ? parseFloat(options.viewport.contrast) : null,
-        x: ('x' in options.viewport) ? parseFloat(options.viewport.x) : null,
-        y: ('y' in options.viewport) ? parseFloat(options.viewport.y) : null,
-        light_x: ('light_x' in options.viewport) ? parseFloat(options.viewport.light_x) : null,
-        light_y: ('light_y' in options.viewport) ? parseFloat(options.viewport.light_y) : null
+        resolution: ('resolution' in options.viewport) ? 
+            parseInt(options.viewport.resolution) : null,
+        rotation: ('rotation' in options.viewport) ? 
+            parseInt(options.viewport.rotation) : null,
+        contrast: ('contrast' in options.viewport) ? 
+            parseFloat(options.viewport.contrast) : null,
+        x: ('x' in options.viewport) ? 
+            parseFloat(options.viewport.x) : null,
+        y: ('y' in options.viewport) ? 
+            parseFloat(options.viewport.y) : null,
+        light_x: ('light_x' in options.viewport) ? 
+            parseFloat(options.viewport.light_x) : null,
+        light_y: ('light_y' in options.viewport) ? 
+            parseFloat(options.viewport.light_y) : null
       }
     }
     else if (window.location.hash.length > 0) {
-      // Accept hash tags of the form ratio x, ratio y, resolution, light_x, light_y
-      // For example
-      // http://your.server/iipmooviewer/test.html#0.4,0.6,5,0.2,-0.3
+      // Accept hash tags of the form ratio x, ratio y, resolution, light_x, 
+      // light_y 
+      // For example:
+      //   http://your.server/iipmooviewer/test.html#0.4,0.6,5,0.2,-0.3
       var params = window.location.hash.split('#')[1].split(',');
       this.viewport = {
         x: parseFloat(params[0]),
@@ -138,22 +148,39 @@ var IIPMooViewer = new Class({
     }
 
     this.images = new Array(options['image'].length);
-    options.image || alert( 'Image location not set in class constructor options');
-    if( typeOf(options.image) === 'array' ){
-       for( i=0; i<options.image.length;i++ ){
-         this.images[i] = { src:options.image[i], sds:"0,90", cnt:(this.viewport&&this.viewport.contrast!==null)? this.viewport.contrast : null, opacity:(i===0)?1:0 };
+    options.image || 
+      alert( 'Image location not set in class constructor options');
+    if (typeOf(options.image) === 'array') {
+      for (i = 0; i < options.image.length; i++) {
+        this.images[i] = { 
+          src: options.image[i], 
+          sds: "0,90", 
+          cnt: (this.viewport && this.viewport.contrast !== null) ? 
+            this.viewport.contrast : null, 
+          opacity: i === 0 ? 1 : 0 
+        };
        }
     }
-    else this.images = [{ src:options.image, sds:"0,90", cnt:(this.viewport&&this.viewport.contrast!==null)? this.viewport.contrast : null, shade: null } ];
+    else {
+      this.images = [{ 
+        src: options.image, 
+        sds: "0,90", 
+        cnt: (this.viewport && this.viewport.contrast !== null) ? 
+            this.viewport.contrast : null, 
+        shade: null 
+      }];
+    }
 
     this.loadoptions = options.load || null;
 
     this.credit = options.credit || null;
 
-    this.scale = ((typeof(Scale)==="function")&&options.scale) ? new Scale(options.scale,options.units) : null;
+    this.scale = ((typeof(Scale) === "function") && options.scale) ? 
+      new Scale(options.scale, options.units) : null;
 
-    // Enable fullscreen mode? If false, then disable. Otherwise option can be "native" for HTML5
-    // fullscreen API mode or "page" for standard web page fill page mode
+    // Enable fullscreen mode? If false, then disable. Otherwise option can be 
+    // "native" for HTML5 fullscreen API mode or "page" for standard web 
+    // page fill page mode
     this.enableFullscreen = 'native';
     if (typeof(options.enableFullscreen) !== 'undefined') {
       if (options.enableFullscreen === false) {
@@ -209,31 +236,39 @@ var IIPMooViewer = new Class({
       });
     }
 
-    this.winResize = (typeof(options.winResize)!=='undefined' && options.winResize==false)? false : true;
+    this.winResize = (typeof(options.winResize) !== 'undefined' && 
+      options.winResize === false) ? false : true;
 
     // Set up our protocol handler
-    switch( options.protocol ){
+    switch (options.protocol) {
       case 'zoomify':
         this.protocol = new Protocols.Zoomify();
         break;
+
       case 'deepzoom':
         this.protocol = new Protocols.DeepZoom();
         break;
+
       case 'deepzoom-rti':
         this.protocol = new Protocols.DeepZoomRTI();
         break;
+
       case 'djatoka':
         this.protocol = new Protocols.Djatoka();
         break;
+
       case 'IIIF':
         this.protocol = new Protocols.IIIF();
         break;
+
       default:
         this.protocol = new Protocols.IIP();
     }
 
-    // Set up our annotations if they have been set and our annotation functions implemented
-    this.annotations = ((typeof(this.initAnnotationTips) === "function") && options.annotations) ? options.annotations : null;
+    // Set up our annotations if they have been set and our annotation 
+    // functions implemented
+    this.annotations = ((typeof(this.initAnnotationTips) === "function") && 
+      options.annotations) ? options.annotations : null;
 
     // If we want to assign a function for a click within the image
     // - used for multispectral curve visualization, for example
@@ -250,13 +285,27 @@ var IIPMooViewer = new Class({
       w: this.wid,
       h: this.hei,
       res: 0,                 // Current resolution
-      rotation: 0,            // Current rotational orientation, can be -ve, can be >360
-      rotation_normalized: 0, // Current rotational orientation, in 0 - 359
+      rotation: 0,            // Current orientation, can be -ve, can be >360
+      rotation_normalized: 0, // Current orientation, in 0 - 359
       light_x: 0,             // Current light position
       light_y: 0
     };
 
-    this.tileSize = {};       // Tile size in pixels {w,h}
+    // same as .view, but hold the values we set last time we updated the
+    // display ... just for the private use of .updateDisplay()
+    this.view_state = {
+      x: -1,
+      y: -1,
+      w: -1,
+      h: -1,
+      res: -1,
+      rotation: -1,
+      rotation_normalized: -1,
+      light_x: -1,
+      light_y: -1
+    };
+
+    this.tileSize = {};       // Tile size in pixels {w, h}
 
     // CSS3: Need to prefix depending on browser. Cannot handle IE<9
     this.CSSprefix = '';
@@ -298,10 +347,63 @@ var IIPMooViewer = new Class({
     window.addEvent( 'domready', this.load.bind(this) );
   },
 
+  /* Compare .view to the last set of values we set on the display and update
+   * the bits of the display that need it.
+   *
+   * This is the general entry point for all display updates. The pattern is:
+   * modify .view in any way you like, then call .updateDisplay(). 
+   *
+   * Set tween to true to make the display animate towards the new view values. 
+   */
+  updateDisplay: function (tween) {
+    this.log("updateDisplay:");
+
+    /* Set the zoom.
+     */
+
+    this.arghView.setLayer(this.view.res);
+
+    /* Set the rotation origin. 
+     */
+
+    var origin_x = this.wid > this.view.w ? 
+      Math.round(this.view.x + this.view.w / 2) : 
+      Math.round(this.wid / 2);
+    var origin_y = this.hei > this.view.h ? 
+      Math.round(this.view.y + this.view.h / 2) : 
+      Math.round(this.hei / 2);
+
+    var origin = origin_x + "px " + origin_y + "px";
+
+    this.canvas.setStyle(this.CSSprefix+'transform-origin', origin);
+
+    this.arghView.setOrigin(origin_x, origin_y);
+
+    /* Do any scrolling.
+     */
+
+    this.canvas.setStyles({
+      left: -this.view.x,
+      top: -this.view.y
+    });
+
+    if (this.navigation) {
+      var view = this.getView();
+      this.navigation.update(
+              view.x / this.wid, 
+              view.y / this.hei, 
+              view.w / this.wid, 
+              view.h / this.hei);
+    }
+
+    this.arghView.fetch();
+  },
+
   /* Create the appropriate CGI strings and change the image sources
    */
   requestImages: function () {
-    // Set our rotation origin - calculate differently if canvas is smaller than view port
+    // Set our rotation origin - calculate differently if canvas is smaller 
+    // than view port
     var origin_x = this.wid > this.view.w ? 
       Math.round(this.view.x + this.view.w / 2) : 
       Math.round(this.wid / 2);
@@ -332,22 +434,29 @@ var IIPMooViewer = new Class({
   getRegionURL: function () {
     var w = this.resolutions[this.view.res].w;
     var h = this.resolutions[this.view.res].h;
-    var region = {x: this.view.x/w, y: this.view.y/h, w: this.view.w/w, h: this.view.h/h};
-    var url = this.protocol.getRegionURL(this.server, this.images[0].src, region, w);
+
+    var region = {
+      x: this.view.x / w, 
+      y: this.view.y / h, 
+      w: this.view.w / w, 
+      h: this.view.h / h
+    };
+
+    var url = this.protocol.getRegionURL(this.server, 
+      this.images[0].src, region, w);
 
     return url;
   },
 
-
-  /* Handle various keyboard events such as allowing us to navigate within the image via the arrow keys etc.
+  /* Handle various keyboard events such as allowing us to navigate within 
+   * the image via the arrow keys etc.
    */
-  key: function(e){
-
+  key: function (e) {
     var event = new DOMEvent(e);
 
-    var d = Math.round(this.view.w/4);
+    var d = Math.round(this.view.w / 4);
 
-    switch( e.code ){
+    switch (e.code) {
     case 37: // left
       this.nudge(-d,0);
       if( IIPMooViewer.sync ) IIPMooViewer.windows(this).invoke( 'nudge', -d, 0 );
@@ -1652,7 +1761,7 @@ var IIPMooViewer = new Class({
       this.navigation.update(view.x / this.wid, view.y / this.hei, view.w / this.wid, view.h / this.hei);
     }
   },
-  
+
   /* Toggle navigation window
    */
   toggleNavigationWindow: function () {
