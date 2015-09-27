@@ -222,10 +222,10 @@ var IIPMooViewer = new Class({
 
           // disable canvas drag in tape and light mode
           if (!tool) {
-              this.touch.attach();
+            this.touch.attach();
           }
           else {
-              this.touch.detach();
+            this.touch.detach();
           }
 
           if (tool === "light") {
@@ -280,7 +280,7 @@ var IIPMooViewer = new Class({
     this.resolutions = [];    // List of available resolutions
     this.num_resolutions = 0; // Number of available resolutions
     this.view = {
-      x: 0,                   // Location and dimensions of current visible view
+      x: 0,                   // Location and dimensions of current view
       y: 0,
       w: this.wid,
       h: this.hei,
@@ -360,12 +360,16 @@ var IIPMooViewer = new Class({
 
     /* Set the zoom.
      */
+    if (this.view_state.res != this.view.res) { 
+      this.view_state.res = this.view.res;
 
-    this.arghView.setLayer(this.view.res);
+      this.arghView.setLayer(this.view_state.res);
+    }
 
     /* Set the rotation origin. 
      */
 
+    // the centre of the viewport, in layer coordinates
     var origin_x = this.wid > this.view.w ? 
       Math.round(this.view.x + this.view.w / 2) : 
       Math.round(this.wid / 2);
@@ -377,6 +381,7 @@ var IIPMooViewer = new Class({
 
     this.canvas.setStyle(this.CSSprefix+'transform-origin', origin);
 
+    // this also scrolls the view
     this.arghView.setOrigin(origin_x, origin_y);
 
     /* Do any scrolling.
