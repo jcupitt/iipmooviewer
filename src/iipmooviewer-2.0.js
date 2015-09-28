@@ -402,6 +402,17 @@ var IIPMooViewer = new Class({
     }
 
     this.arghView.fetch();
+
+    if (IIPMooViewer.sync) {
+      IIPMooViewer.windows(this).invoke('updateView', this.view);
+    }
+  },
+
+  /* Update the view and the display. Used for things like sync mode.
+   */
+  updateView: function (view) {
+      this.view = Object.create(view);
+      this.updateDisplay();
   },
 
   /* Create the appropriate CGI strings and change the image sources
@@ -705,33 +716,54 @@ var IIPMooViewer = new Class({
     }
   },
 
-  /* Scroll from a drag event on the tile canvas
+  /* Scroll from a drag on the tile canvas
    */
-  scroll: function (e) {
-    var pos = {};
+  scroll: function () {
+    var x = this.canvas.getStyle('left').toInt();
+    var y = this.canvas.getStyle('top').toInt();
 
-    // Use style values directly as getPosition will take into account rotation
-    pos.x = this.canvas.getStyle('left').toInt();
-    pos.y = this.canvas.getStyle('top').toInt();
+    this.log("scroll: x = " + x + ", y = " + y);
 
-    var xmove = -pos.x;
-    var ymove = -pos.y;
+    var p = this.arghView.screen2layer([x, y]);
 
+    this.log("   layer x = " + p[0] + ", y = " + p[1]);
+
+    var xmove;
+    var ymove;
+
+    if (this.view.rotation_normalized === 270) {
+      xmove = -y;
+      ymove = -x;
+    }
+    else {
+      xmove = -x;
+      ymove = -y;
+    }
+
+      /*
     if (this.view.rotation_normalized === 90) {
-      xmove = this.view.x - (this.view.y + pos.y);
-      ymove = this.view.y + (this.view.x + pos.x);
+      xmove = this.view.x - (this.view.y + y);
+      ymove = this.view.y + (this.view.x + x);
     }
     else if (this.view.rotation_normalized === 180) {
-      xmove = this.view.x + (this.view.x + pos.x);
-      ymove = this.view.y + (this.view.y + pos.y);
+      xmove = this.view.x + (this.view.x + x);
+      ymove = this.view.y + (this.view.y + y);
     }
     else if (this.view.rotation_normalized === 270) {
-      xmove = this.view.x + (this.view.y + pos.y);
-      ymove = this.view.y - (this.view.x + pos.x);
+      xmove = this.view.x + (this.view.y + y);
+      ymove = this.view.y - (this.view.x + x);
+    }
+    else {
+      xmove = -x;
+      ymove = -y;
     }
 
-    // Need to do the moveTo rather than just requestImages() to avoid problems with rotated views 
-    this.moveTo(xmove, ymove);
+    this.view.x = xmove;
+    this.view.y = ymove;
+     */
+
+    this.log("scroll: view.x = " + this.view.x + ", view.y = " + this.view.x);
+    //this.updateDisplay();
   },
 
   /* Get view taking into account rotations
@@ -1165,7 +1197,6 @@ var IIPMooViewer = new Class({
       }
     });
 
-
     // Add touch or drag events to our canvas
     if ('ontouchstart' in window || navigator.msMaxTouchPoints) {
         // Add our touch events
@@ -1176,16 +1207,13 @@ var IIPMooViewer = new Class({
         // Add synchronization via the Drag complete hook as well as 
         // coordinate updating
         this.touch = new Drag(this.canvas, {
-            onStart: function () {
+            onStart: function (e) {
                 _this.canvas.addClass('drag');
             },
-            onDrag: function () {
+            onDrag: function (e) {
                 _this.scroll();
             },
-            onComplete: function () {
-                if (IIPMooViewer.sync) {
-                    IIPMooViewer.windows(this).invoke('moveTo', xmove, ymove);
-                }
+            onComplete: function (e) {
                 _this.canvas.removeClass('drag');
             }
         });
