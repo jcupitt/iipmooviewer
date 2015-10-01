@@ -1836,14 +1836,27 @@ var IIPMooViewer = new Class({
   constrain: function () {
     this.log("constrain:");
 
-    var ax = this.wid < this.view.w ? 
-      Array(Math.round((this.view.w - this.wid) / 2), 
-              Math.round((this.view.w - this.wid) / 2)) : 
-      Array(this.view.w - this.wid, 0);
-    var ay = this.hei < this.view.h ? 
-      Array(Math.round((this.view.h - this.hei) / 2), 
-              Math.round((this.view.h - this.hei) / 2)) : 
-      Array(this.view.h - this.hei, 0);
+    var layer_width;
+    var layer_height;
+
+    // layer width/height swap for the sideways rotations
+    if (this.view.rotation_normalized % 180 === 90) {
+        layer_width = this.hei;
+        layer_height = this.wid;
+    }
+    else {
+        layer_width = this.wid;
+        layer_height = this.hei;
+    }
+
+    var ax = layer_width < this.view.w ? 
+      Array(Math.round((this.view.w - layer_width) / 2), 
+              Math.round((this.view.w - layer_width) / 2)) : 
+      Array(this.view.w - layer_width, 0);
+    var ay = layer_height < this.view.h ? 
+      Array(Math.round((this.view.h - layer_height) / 2), 
+              Math.round((this.view.h - layer_height) / 2)) : 
+      Array(this.view.h - layer_height, 0);
 
     if (this.touch) {
       this.touch.options.limit = { x: ax, y: ay };
