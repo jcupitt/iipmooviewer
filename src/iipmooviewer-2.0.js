@@ -343,8 +343,59 @@ var IIPMooViewer = new Class({
       }
     });
 
-    // Load us up when the DOM is fully loaded!
-    window.addEvent( 'domready', this.load.bind(this) );
+    // call this.load() when the DOM is ready
+    window.addEvent('domready', this.load.bind(this));
+  },
+
+  /* this.view may have any values ... constrain 
+   */
+  constrain: function () {
+    this.log("constrain:");
+
+    var layer_width;
+    var layer_height;
+
+    // layer width/height swap for the sideways rotations
+    if (this.view.rotation_normalized % 180 === 90) {
+        layer_width = this.hei;
+        layer_height = this.wid;
+    }
+    else {
+        layer_width = this.wid;
+        layer_height = this.hei;
+    }
+
+    // if the layer is smaller than the screen, we centre
+    if
+
+    var ax = layer_width < this.view.w ? 
+      Array(Math.round((this.view.w - layer_width) / 2), 
+              Math.round((this.view.w - layer_width) / 2)) : 
+      Array(this.view.w - layer_width, 0);
+    var ay = layer_height < this.view.h ? 
+      Array(Math.round((this.view.h - layer_height) / 2), 
+              Math.round((this.view.h - layer_height) / 2)) : 
+      Array(this.view.h - layer_height, 0);
+
+    if (this.touch) {
+      this.touch.options.limit = { x: ax, y: ay };
+    }
+  },
+
+  /* Correctly position the canvas, taking into account images smaller than 
+   * the viewport
+   */
+  positionCanvas: function () {
+    this.log("positionCanvas:");
+
+    this.canvas.setStyles({
+      left: (this.wid > this.view.w) ? 
+        -this.view.x : 
+        Math.round((this.view.w - this.wid) / 2),
+      top : (this.hei > this.view.h) ? 
+        -this.view.y : 
+        Math.round((this.view.h - this.hei) / 2)
+    });
   },
 
   /* Compare .view to the last set of values we set on the display and update
@@ -405,6 +456,14 @@ var IIPMooViewer = new Class({
 
     this.arghView.fetch();
 
+    // update annotations
+    if (this.annotations) {
+      this.drawAnnotations();
+      if (this.annotationTip) {
+        this.annotationTip.attach(this.canvas.getChildren('div.annotation'));
+      }
+    }
+
     if (IIPMooViewer.sync) {
       IIPMooViewer.windows(this).invoke('updateView', this.view);
     }
@@ -419,34 +478,10 @@ var IIPMooViewer = new Class({
     this.updateDisplay();
   },
 
-  /* Create the appropriate CGI strings and change the image sources
+  /* Compatibility stub.
    */
   requestImages: function () {
-    // Set our rotation origin - calculate differently if canvas is smaller 
-    // than view port
-    var origin_x = this.wid > this.view.w ? 
-      Math.round(this.view.x + this.view.w / 2) : 
-      Math.round(this.wid / 2);
-    var origin_y = this.hei > this.view.h ? 
-      Math.round(this.view.y + this.view.h / 2) : 
-      Math.round(this.hei / 2);
-    this.log("requestImages: x = " + origin_x + ", y = " + origin_y);
-
-    var origin = origin_x + "px " + origin_y + "px";
-    this.canvas.setStyle(this.CSSprefix+'transform-origin', origin);
-
-    this.arghView.setLayer(this.view.res);
-    this.arghView.setOrigin(origin_x, origin_y);
-    this.arghView.fetch();
-
-    // Create new annotations and attach the tooltip to them if it already 
-    // exists
-    if (this.annotations) {
-      this.drawAnnotations();
-      if (this.annotationTip) {
-        this.annotationTip.attach(this.canvas.getChildren('div.annotation'));
-      }
-    }
+    this.updateDisplay();
   },
 
   /* Get a URL for a screenshot of the current view region
@@ -468,8 +503,7 @@ var IIPMooViewer = new Class({
     return url;
   },
 
-  /* Handle various keyboard events such as allowing us to navigate within 
-   * the image via the arrow keys etc.
+  /* Handle keyboard events for navigation, fullscreen etc.
    */
   key: function (e) {
     var event = new DOMEvent(e);
@@ -697,9 +731,6 @@ var IIPMooViewer = new Class({
     var ymove = Math.round(y * this.hei);
 
     this.log("scrollNavigation: xmove = " + xmove + ", ymove = " + ymove);
-
-    // Only morph transition if we have moved a short distance and our rotation is zero
-    var morphable = Math.abs(xmove - this.view.x) < this.view.w / 2 && Math.abs(ymove - this.view.y) < this.view.h / 2 && this.view.rotation_normalized === 0;
 
     this.view.x = xmove;
     this.view.y = ymove;
