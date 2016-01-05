@@ -358,6 +358,9 @@ var IIPMooViewer = new Class({
   updateDisplay: function (tween) {
     this.log("updateDisplay:");
 
+    // the viewport, but with any rotation applied
+    var view = this.getView();
+
     /* Set the zoom.
      */
     if (this.view_state.res != this.view.res) { 
@@ -370,11 +373,11 @@ var IIPMooViewer = new Class({
      */
 
     // the centre of the viewport, in layer coordinates
-    var origin_x = this.wid > this.view.w ? 
-      Math.round(this.view.x + this.view.w / 2) : 
+    var origin_x = this.wid > view.w ? 
+      Math.round(view.x + view.w / 2) : 
       Math.round(this.wid / 2);
-    var origin_y = this.hei > this.view.h ? 
-      Math.round(this.view.y + this.view.h / 2) : 
+    var origin_y = this.hei > view.h ? 
+      Math.round(view.y + view.h / 2) : 
       Math.round(this.hei / 2);
 
     var origin = origin_x + "px " + origin_y + "px";
@@ -388,12 +391,11 @@ var IIPMooViewer = new Class({
      */
 
     this.canvas.setStyles({
-      left: -this.view.x,
-      top: -this.view.y
+      left: -view.x,
+      top: -view.y
     });
 
     if (this.navigation) {
-      var view = this.getView();
       this.navigation.update(
               view.x / this.wid, 
               view.y / this.hei, 
@@ -689,13 +691,12 @@ var IIPMooViewer = new Class({
   /* Scroll resulting from a drag of the navigation window
    */
   scrollNavigation: function (e) {
-    this.log("scrollNavigation:");
+    var x = e.x;
+    var y = e.y;
+    var xmove = Math.round(x * this.wid);
+    var ymove = Math.round(y * this.hei);
 
-    // Cancel any running morphs on the canvas
-    this.canvas.get('morph').cancel();
-
-    var xmove = Math.round(e.x * this.wid);
-    var ymove = Math.round(e.y * this.hei);
+    this.log("scrollNavigation: xmove = " + xmove + ", ymove = " + ymove);
 
     // Only morph transition if we have moved a short distance and our rotation is zero
     var morphable = Math.abs(xmove - this.view.x) < this.view.w / 2 && Math.abs(ymove - this.view.y) < this.view.h / 2 && this.view.rotation_normalized === 0;
@@ -703,21 +704,7 @@ var IIPMooViewer = new Class({
     this.view.x = xmove;
     this.view.y = ymove;
 
-    if (morphable) {
-      this.canvas.morph({
-        left: (this.wid > this.view.w) ? -xmove : Math.round((this.view.w - this.wid) / 2),
-        top: (this.hei > this.view.h) ? -ymove : Math.round((this.view.h - this.hei) / 2)
-      });
-    }
-    else {
-      this.positionCanvas();
-      // The morph event automatically calls requestImages
-      this.requestImages();      
-    }
-
-    if (IIPMooViewer.sync) {
-      IIPMooViewer.windows(this).invoke('moveTo', xmove, ymove);
-    }
+    this.updateDisplay();
   },
 
   /* Scroll from a drag on the tile canvas
