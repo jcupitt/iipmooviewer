@@ -347,41 +347,6 @@ var IIPMooViewer = new Class({
     window.addEvent('domready', this.load.bind(this));
   },
 
-  /* this.view may have any values ... constrain 
-   */
-  constrain: function () {
-    this.log("constrain:");
-
-    var layer_width;
-    var layer_height;
-
-    // layer width/height swap for the sideways rotations
-    if (this.view.rotation_normalized % 180 === 90) {
-        layer_width = this.hei;
-        layer_height = this.wid;
-    }
-    else {
-        layer_width = this.wid;
-        layer_height = this.hei;
-    }
-
-    // if the layer is smaller than the screen, we centre
-    if
-
-    var ax = layer_width < this.view.w ? 
-      Array(Math.round((this.view.w - layer_width) / 2), 
-              Math.round((this.view.w - layer_width) / 2)) : 
-      Array(this.view.w - layer_width, 0);
-    var ay = layer_height < this.view.h ? 
-      Array(Math.round((this.view.h - layer_height) / 2), 
-              Math.round((this.view.h - layer_height) / 2)) : 
-      Array(this.view.h - layer_height, 0);
-
-    if (this.touch) {
-      this.touch.options.limit = { x: ax, y: ay };
-    }
-  },
-
   /* Correctly position the canvas, taking into account images smaller than 
    * the viewport
    */
@@ -409,52 +374,153 @@ var IIPMooViewer = new Class({
   updateDisplay: function (tween) {
     this.log("updateDisplay:");
 
-    // the viewport, but with any rotation applied
-    var view = this.getView();
-
     /* Set the zoom.
      */
+
+    this.view.res = Math.max(this.view.res, 0);
+    this.view.res = Math.min(this.view.res, this.num_resolutions - 1);
+
     if (this.view_state.res != this.view.res) { 
       this.view_state.res = this.view.res;
 
       this.arghView.setLayer(this.view_state.res);
+      if (this.navigation) {
+        this.navigation.setCoords('');
+      }
+
+      if (this.scale) {
+        this.scale.update(this.wid / this.max_size.w, this.view.w);
+      }
     }
+
+    /* Constrain position.
+     */
+
+    var layer_width;
+    var layer_height;
+
+    // layer width/height swap for the sideways rotations
+    if (this.view.rotation_normalized % 180 === 90) {
+        layer_width = this.hei;
+        layer_height = this.wid;
+    }
+    else {
+        layer_width = this.wid;
+        layer_height = this.hei;
+    }
+
+    // if the layer is smaller than the screen, we centre ... otherwise, clip
+    // x to the maximum range
+    if (layer_width < this.view.w) {
+        this.view.x = -(this.view.w - layer_width) / 2;
+    }
+    else {
+        this.view.x = Math.max(this.view.x, 0)
+        this.view.x = Math.min(this.view.x, layer_width - this.view.w);
+    }
+
+    if (layer_height < this.view.h) {
+        this.view.y = -(this.view.h - layer_height) / 2;
+    }
+    else {
+        this.view.y = Math.max(this.view.y, 0)
+        this.view.y = Math.min(this.view.y, layer_height - this.view.h);
+    }
+
+    /* FIXME ... should limit touch range? we had:
+     
+    var ax = layer_width < this.view.w ? 
+      Array(Math.round((this.view.w - layer_width) / 2), 
+              Math.round((this.view.w - layer_width) / 2)) : 
+      Array(this.view.w - layer_width, 0);
+    var ay = layer_height < this.view.h ? 
+      Array(Math.round((this.view.h - layer_height) / 2), 
+              Math.round((this.view.h - layer_height) / 2)) : 
+      Array(this.view.h - layer_height, 0);
+
+    if (this.touch) {
+      this.touch.options.limit = { x: ax, y: ay };
+    }
+     */
+
+    /* Set the rotation.
+     */
+
+    if (this.view.rotation > 0) {
+      this.view.rotation_normalized = this.view.rotation % 360;
+    }
+    else {
+      this.view.rotation_normalized = 360 - (-this.view.rotation % 360);
+    }
+
+    this.arghView.setAngle(-this.view.rotation);
+
+    var angle = 'rotate(' + this.view.rotation + 'deg)';
+    this.canvas.setStyle(this.CSSprefix + 'transform', angle);
+
+    /* FIXME ... use this to optionally tween rotation
+     
+    if (this.rotationTween) {
+      this.rotationTween.cancel();
+      this.rotationTween = null;
+    }
+
+    this.rotationTween = new IIPJSTween(
+      function (value) {
+        _this.arghView.setAngle(-value);
+        _this.arghView.setLightPosition(_this.view.light_x, _this.view.light_y);
+        _this.arghView.fetch();
+      },
+      {
+        duration: 'long'
+      }
+    );
+    this.rotationTween.start(this.view.rotation, r);
+
+    this.view.rotation = r;
+     */
 
     /* Set the rotation origin. 
      */
 
     // the centre of the viewport, in layer coordinates
-    var origin_x = this.wid > view.w ? 
-      Math.round(view.x + view.w / 2) : 
-      Math.round(this.wid / 2);
-    var origin_y = this.hei > view.h ? 
-      Math.round(view.y + view.h / 2) : 
-      Math.round(this.hei / 2);
+    var origin_x = Math.round(this.view.x + this.view.w / 2);
+    var origin_y = Math.round(this.view.y + this.view.h / 2);
 
     var origin = origin_x + "px " + origin_y + "px";
 
     this.canvas.setStyle(this.CSSprefix+'transform-origin', origin);
 
-    // this also scrolls the view
+    // this also scrolls the arghView
     this.arghView.setOrigin(origin_x, origin_y);
 
-    /* Do any scrolling.
+    /* Scroll the canvas.
      */
 
     this.canvas.setStyles({
-      left: -view.x,
-      top: -view.y
+      left: -this.view.x,
+      top: -this.view.y
     });
+
+    /* Set the light position.
+     */
+
+    this.arghView.setLightPosition(this.view.light_x, this.view.light_y);
+
+    /* Now all params are set, set the aghView updating.
+     */
+    this.arghView.fetch();
+
+    /* Update other wigets.
+     */
 
     if (this.navigation) {
       this.navigation.update(
-              view.x / this.wid, 
-              view.y / this.hei, 
-              view.w / this.wid, 
-              view.h / this.hei);
+              this.view.x / this.wid, 
+              this.view.y / this.hei, 
+              this.view.w / this.wid, 
+              this.view.h / this.hei);
     }
-
-    this.arghView.fetch();
 
     // update annotations
     if (this.annotations) {
@@ -478,10 +544,102 @@ var IIPMooViewer = new Class({
     this.updateDisplay();
   },
 
-  /* Compatibility stub.
+  /* Compatibility stubs. Some iipmooviewer plugins might use these. 
    */
+
   requestImages: function () {
     this.updateDisplay();
+  },
+
+  constrain: function () {
+  },
+
+  rotate: function (r) {
+    this.view.rotation = r;
+    this.updateDisplay();
+  },
+
+  zoomIn: function () {
+    this.setZoom(this.view.res + 1);
+    this.updateDisplay();
+  },
+
+  zoomOut: function () {
+    this.setZoom(this.view.res - 1);
+    this.updateDisplay();
+  },
+
+  zoomTo: function (r) {
+    this.setZoom(r);
+    this.updateDisplay();
+  },
+
+  setLightPosition: function (light_x, light_y) {
+    this.view.light_x = light_x;
+    this.view.light_y = light_y;
+    this.updateDisplay();
+  },
+
+  checkBounds: function (x, y) {
+    this.view.x = x;
+    this.view.y = y;
+  },
+
+  moveTo: function (x, y) {
+    this.checkBounds(x,y);
+    this.updateDisplay();
+  },
+
+  /* Nudge the view by a small amount. The movement is in screenspace, we need
+   * to translate to layer space.
+   */
+  nudge: function (dx, dy) {
+    this.log("nudge:");
+
+    var p = this.screen2layer([dx, dy]);
+    this.view.x += p[0];
+    this.view.y += p[1];
+    this.updateDisplay();
+  },
+
+  /* Set a zoom ... on zooming in, zoom on the point in the centre of the
+   * screen.
+   */
+  setZoom: function (res) {
+    this.log("setZoom:");
+
+    res = Math.max(res, 0);
+    res = Math.min(res, this.num_resolutions - 1);
+
+    if (this.view.res == res) {
+      return;
+    }
+
+    var factor = Math.pow(2, res - this.view.res);
+
+    // Calculate an offset to take into account the view port size
+    // Center if our image width at this resolution is smaller than the 
+    // view width - only need to do this on zooming in as our
+    // constraining will automatically recenter when zooming out
+    var xoffset, yoffset;
+
+    if (res > this.view.res) {
+      xoffset = this.resolutions[this.view.res].w > this.view.w ? 
+        this.view.w * (factor - 1) / 2 : 
+        this.resolutions[res].w / 2 - this.view.w / 2;
+      yoffset = this.resolutions[this.view.res].h > this.view.h ? 
+        this.view.h * (factor - 1) / 2 : 
+        this.resolutions[res].h / 2 - this.view.h / 2;
+    }
+    else {
+      xoffset = -this.view.w * (1 - factor) / 2;
+      yoffset = -this.view.h * (1 - factor) / 2;;
+    }
+
+    this.view.x = Math.round(factor * this.view.x + xoffset);
+    this.view.y = Math.round(factor * this.view.y + yoffset);
+
+    this.view.res = res;
   },
 
   /* Get a URL for a screenshot of the current view region
@@ -507,135 +665,106 @@ var IIPMooViewer = new Class({
    */
   key: function (e) {
     var event = new DOMEvent(e);
+    var has_changed = false;
+    var prevent_default = true;
 
     var d = Math.round(this.view.w / 4);
 
     switch (e.code) {
     case 37: // left
-      this.nudge(-d,0);
-      if( IIPMooViewer.sync ) IIPMooViewer.windows(this).invoke( 'nudge', -d, 0 );
-      event.preventDefault(); // Prevent default only for navigational keys
+      this.nudge(-d, 0); 
       break;
+
     case 38: // up
-      this.nudge(0,-d);
-      if( IIPMooViewer.sync ) IIPMooViewer.windows(this).invoke( 'nudge', 0, -d );
-      event.preventDefault();
+      this.nudge(0, -d); 
       break;
+
     case 39: // right
-      this.nudge(d,0);
-      if( IIPMooViewer.sync ) IIPMooViewer.windows(this).invoke( 'nudge', d, 0 );
-      event.preventDefault();
+      this.nudge(d, 0); 
       break;
+
     case 40: // down
-      this.nudge(0,d);
-      if( IIPMooViewer.sync ) IIPMooViewer.windows(this).invoke( 'nudge', 0, d );
-      event.preventDefault();
+      this.nudge(0, d); 
       break;
+
     case 107: // plus
-      if(!e.control){
-        this.zoomIn();
-        if( IIPMooViewer.sync ) IIPMooViewer.windows(this).invoke('zoomIn');
-        event.preventDefault();
+      if (!e.control) {
+        this.setZoom(this.view.res + 1);
       }
       break;
+
     case 109: // minus
     case 189: // minus
-      if(!e.control){
-        this.zoomOut();
-        if( IIPMooViewer.sync ) IIPMooViewer.windows(this).invoke('zoomOut');
-        event.preventDefault();
-      }
-      break;
-    case 72: // h
-      if( this.navOptions&&this.navOptions.id ) break;
-      event.preventDefault();
-      if( this.navigation ) this.navigation.toggleWindow();
-      if( this.credit ) this.container.getElement('div.credit').get('reveal').toggle();
-      break;
-    case 82: // r
-      if( this.navOptions&&this.navOptions.buttons &&
-          ( !this.navOptions.buttons.contains('rotateLeft') &&
-            !this.navOptions.buttons.contains('rotateRight') ) ) break;
-      event.preventDefault();
       if (!e.control) {
-        var r = this.view.rotation + e.shift ? -90 : 90;
-
-        this.rotate(r);
-
-        if (IIPMooViewer.sync) {
-          IIPMooViewer.windows(this).invoke('rotate', r );
-        }
+        this.setZoom(this.view.res - 1);
       }
       break;
-    case 65: // a
-      if( this.annotations ) this.toggleAnnotations();
-      event.preventDefault();
+
+    case 72: // h
+      if (this.navOptions && this.navOptions.id) {
+        break;
+      }
+      if (this.navigation) {
+        this.navigation.toggleWindow();
+      }
+      if (this.credit) {
+        this.container.getElement('div.credit').get('reveal').toggle();
+      }
       break;
+
+    case 82: // r
+      if (this.navOptions && this.navOptions.buttons &&
+          (!this.navOptions.buttons.contains('rotateLeft') &&
+           !this.navOptions.buttons.contains('rotateRight'))) {
+        break;
+      }
+
+      if (!e.control) {
+        this.view.rotation += e.shift ? -90 : 90;
+        this.updateDisplay();
+      }
+      break;
+
+    case 65: // a
+      if (this.annotations) {
+        this.toggleAnnotations();
+      }
+      break;
+
     case 27: // esc
-      if( this.fullscreen && this.fullscreen.isFullscreen ) if(!IIPMooViewer.sync) this.toggleFullScreen();
+      if (this.fullscreen && this.fullscreen.isFullscreen && 
+        !IIPMooViewer.sync) {
+        this.toggleFullScreen();
+      }
       this.container.getElement('div.info').fade('out');
       break;
-    case 70: // f fullscreen, but if we have multiple views
-      if(!IIPMooViewer.sync) this.toggleFullScreen();
-      event.preventDefault();
+
+    case 70: // f ... fullscreen, but if we have multiple views
+      if (!IIPMooViewer.sync) {
+        this.toggleFullScreen();
+      }
       break;
+
     case 67: // For control-c, show our current view location
-      if(e.control) prompt( "URL of current view:", window.location.href.split("#")[0] + '#' +
-                            (this.view.x+this.view.w/2)/this.wid + ',' +
-                            (this.view.y+this.view.h/2)/this.hei + ',' +
+      if (e.control) {
+        prompt( "URL of current view:", 
+                window.location.href.split("#")[0] + '#' +
+                            (this.view.x + this.view.w / 2) / this.wid + ',' +
+                            (this.view.y + this.view.h / 2) / this.hei + ',' +
                             this.view.res + ',' +
                             this.view.light_x + ',' +
                             this.view.light_y );
-      break;
-    default:
-      break;
-    }
-  },
-
-  /* Rotate our view
-   */
-  rotate: function (r) {
-    var _this = this;
-
-    this.log("rotate: r = " + r);
-
-    // Rotation works in Firefox 3.5+, Chrome, Safari and IE9+
-    if (Browser.buggy) {
-      return;
-    }
-
-    if (this.rotationTween) {
-      this.rotationTween.cancel();
-      this.rotationTween = null;
-    }
-
-    this.rotationTween = new IIPJSTween(
-      function (value) {
-        _this.arghView.setAngle(-value);
-        _this.arghView.setLightPosition(_this.view.light_x, _this.view.light_y);
-        _this.arghView.fetch();
-      },
-      {
-        duration: 'long'
       }
-    );
-    this.rotationTween.start(this.view.rotation, r);
+      break;
 
-    this.view.rotation = r;
-
-    if (this.view.rotation > 0) {
-      this.view.rotation_normalized = this.view.rotation % 360;
-    }
-    else {
-      this.view.rotation_normalized = 360 - (-this.view.rotation % 360);
+    default:
+      prevent_default = false;
+      break;
     }
 
-    var angle = 'rotate(' + r + 'deg)';
-    this.canvas.setStyle(this.CSSprefix+'transform', angle);
+    if (prevent_default)
+      event.preventDefault(); 
 
-    this.constrain();
-    this.requestImages();
-    this.updateNavigation();
   },
 
   /* Toggle fullscreen
@@ -762,7 +891,6 @@ var IIPMooViewer = new Class({
       ymove = -y;
     }
 
-      /*
     if (this.view.rotation_normalized === 90) {
       xmove = this.view.x - (this.view.y + y);
       ymove = this.view.y + (this.view.x + x);
@@ -782,10 +910,9 @@ var IIPMooViewer = new Class({
 
     this.view.x = xmove;
     this.view.y = ymove;
-     */
 
     this.log("scroll: view.x = " + this.view.x + ", view.y = " + this.view.x);
-    //this.updateDisplay();
+    this.updateDisplay();
   },
 
   /* Get view taking into account rotations
@@ -816,103 +943,12 @@ var IIPMooViewer = new Class({
     return {x: x, y: y, w: w, h: h};
   },
 
-  /* Check our scroll bounds.
-   */
-  checkBounds: function (x, y) {
-    this.log("checkBounds:");
-
-    if (x > this.wid - this.view.w) {
-      x = this.wid - this.view.w;
-    }
-    if (y > this.hei - this.view.h) {
-      y = this.hei - this.view.h;
-    }
-
-    if (x < 0 || this.wid < this.view.w) {
-      x = 0;
-    }
-    if (y < 0 || this.hei < this.view.h) {
-      y = 0;
-    }
-
-    this.view.x = x;
-    this.view.y = y;
-  },
-
-  /* Move to a particular position on the image
-   */
-  moveTo: function (x, y) {
-    this.log("moveTo:");
-
-    // To avoid unnecessary redrawing ...
-    if (x === this.view.x && y === this.view.y) {
-      return;
-    }
-
-    this.checkBounds(x,y);
-    this.positionCanvas();
-    this.requestImages();
-    this.updateNavigation();
-  },
-
-  /* Set a light position. We need to record a copy of the position for ^C and 
-   * annotations.
-   */
-  setLightPosition: function (light_x, light_y) {
-    this.log("setLightPosition: " + light_x + ", " + light_y);
-
-    this.view.light_x = light_x;
-    this.view.light_y = light_y;
-
-    if (this.arghView) { 
-      this.arghView.setLightPosition(light_x, light_y);
-    }
-  },
-
   /* Move to and center at a particular point
    */
   centerTo: function (x, y) {
     this.moveTo(
         Math.round(x * this.wid - (this.view.w / 2)), 
         Math.round(y * this.hei - (this.view.h / 2)));
-  },
-
-  /* Nudge the view by a small amount
-   */
-  nudge: function (dx, dy) {
-    this.log("nudge:");
-
-    var rdx = dx;
-    var rdy = dy;
-
-    if (this.view.rotation_normalized === 90) {
-      rdy = -dx;
-      rdx = dy;
-    }
-    else if (this.view.rotation_normalized === 180) {
-      rdx = -dx;
-      rdy = -dy;
-    }
-    else if (this.view.rotation_normalized === 270) {
-      rdx = -dy;
-      rdy = dx;
-    }
-
-    // Morph is buggy for rotated images, so only use for no rotation
-    if (this.view.rotation_normalized === 0) {
-      this.checkBounds(this.view.x + rdx,this.view.y + rdy);
-      this.canvas.morph({
-        left: (this.wid > this.view.w) ? 
-          -this.view.x : Math.round((this.view.w - this.wid) / 2),
-        top: (this.hei > this.view.h) ? 
-          -this.view.y : Math.round((this.view.h - this.hei) / 2)
-      });
-    }
-    else {
-      this.moveTo(this.view.x + rdx, this.view.y + rdy);
-    }
-
-    this.updateNavigation();
   },
 
   /* Generic zoom function for mouse wheel or click events
@@ -1003,110 +1039,6 @@ var IIPMooViewer = new Class({
       else {
         IIPMooViewer.windows(this).invoke('zoomIn');
       }
-    }
-  },
-
-  /* Zoom in by a factor of 2
-   */
-  zoomIn: function () {
-    this.log("zoomIn:");
-
-    if (this.view.res < this.num_resolutions - 1) {
-      this.zoomTo(this.view.res + 1);
-    }
-  },
-
-  /* Zoom out by a factor of 2
-   */
-  zoomOut: function () {
-    this.log("zoomOut:");
-
-    if (this.view.res > 0) {
-      this.zoomTo(this.view.res - 1);
-    }
-  },
-
-  /* Zoom to a particular resolution
-   */
-  zoomTo: function (r) {
-    this.log("zoomTo:");
-
-    if (r === this.view.res) {
-      return;
-    }
-
-    if (r <= this.num_resolutions - 1 && r >= 0) {
-      var factor = Math.pow(2, r - this.view.res);
-
-      // Calculate an offset to take into account the view port size
-      // Center if our image width at this resolution is smaller than the 
-      // view width - only need to do this on zooming in as our
-      // constraining will automatically recenter when zooming out
-      var xoffset, yoffset;
-
-      if (r > this.view.res) {
-        xoffset = this.resolutions[this.view.res].w > this.view.w ? 
-          this.view.w * (factor - 1) / 2 : 
-          this.resolutions[r].w / 2 - this.view.w / 2;
-        yoffset = this.resolutions[this.view.res].h > this.view.h ? 
-          this.view.h * (factor - 1) / 2 : 
-          this.resolutions[r].h / 2 - this.view.h / 2;
-      }
-      else {
-        xoffset = -this.view.w * (1 - factor) / 2;
-        yoffset = -this.view.h * (1 - factor) / 2;;
-      }
-
-      this.view.x = Math.round(factor * this.view.x + xoffset);
-      this.view.y = Math.round(factor * this.view.y + yoffset);
-
-      this.view.res = r;
-
-      this._zoom();
-    }
-  },
-
-  /* Generic zoom function
-   */
-  _zoom: function () {
-    this.log("_zoom:");
-
-    // Get the image size for this resolution
-    this.wid = this.resolutions[this.view.res].w;
-    this.hei = this.resolutions[this.view.res].h;
-
-    if (this.view.x + this.view.w > this.wid) {
-      this.view.x = this.wid - this.view.w;
-    }
-    else if (this.view.x < 0) {
-      this.view.x = 0;
-    }
-
-    if (this.view.y + this.view.h > this.hei) {
-      this.view.y = this.hei - this.view.h;
-    }
-    else if (this.view.y < 0) {
-      this.view.y = 0;
-    }
-
-    this.positionCanvas();
-    this.canvas.setStyles({
-      width: this.wid,
-      height: this.hei
-    });
-
-    // Contstrain our canvas to our containing div
-    this.constrain();
-
-    this.requestImages();
-
-    this.updateNavigation();
-    if (this.navigation) {
-      this.navigation.setCoords('');
-    }
-
-    if (this.scale) {
-      this.scale.update(this.wid / this.max_size.w, this.view.w);
     }
   },
 
@@ -1446,11 +1378,8 @@ var IIPMooViewer = new Class({
 
       this.navigation.addEvents({
         rotate: function (r) {
-          var rotation = _this.view.rotation + r;
-          _this.rotate(rotation);
-          if (IIPMooViewer.sync) {
-            IIPMooViewer.windows(_this).invoke('rotate', rotation);
-          }
+          _this.view.rotation += r;
+          _this.updateDisplay();
         },
         zoomIn: function () {
           _this.zoomIn();
@@ -1847,38 +1776,6 @@ var IIPMooViewer = new Class({
     // Center our canvas, taking into account images smaller than the viewport
     this.positionCanvas();
     this.constrain();
-  },
-
-  /* Constrain the movement of our canvas to our containing div
-   */
-  constrain: function () {
-    this.log("constrain:");
-
-    var layer_width;
-    var layer_height;
-
-    // layer width/height swap for the sideways rotations
-    if (this.view.rotation_normalized % 180 === 90) {
-        layer_width = this.hei;
-        layer_height = this.wid;
-    }
-    else {
-        layer_width = this.wid;
-        layer_height = this.hei;
-    }
-
-    var ax = layer_width < this.view.w ? 
-      Array(Math.round((this.view.w - layer_width) / 2), 
-              Math.round((this.view.w - layer_width) / 2)) : 
-      Array(this.view.w - layer_width, 0);
-    var ay = layer_height < this.view.h ? 
-      Array(Math.round((this.view.h - layer_height) / 2), 
-              Math.round((this.view.h - layer_height) / 2)) : 
-      Array(this.view.h - layer_height, 0);
-
-    if (this.touch) {
-      this.touch.options.limit = { x: ax, y: ay };
-    }
   },
 
   /* Correctly position the canvas, taking into account images smaller than 
