@@ -388,6 +388,14 @@ var IIPMooViewer = new Class({
         this.navigation.setCoords('');
       }
 
+      this.wid = this.resolutions[this.view.res].w;
+      this.hei = this.resolutions[this.view.res].h;
+
+      this.canvas.setStyles({
+        width: this.wid,
+        height: this.hei
+      });
+
       if (this.scale) {
         this.scale.update(this.wid / this.max_size.w, this.view.w);
       }
@@ -507,7 +515,7 @@ var IIPMooViewer = new Class({
 
     this.arghView.setLightPosition(this.view.light_x, this.view.light_y);
 
-    /* Now all params are set, set the aghView updating.
+    /* Now all params are set, set the arghView updating.
      */
     this.arghView.fetch();
 
@@ -606,7 +614,7 @@ var IIPMooViewer = new Class({
    * screen.
    */
   setZoom: function (res) {
-    this.log("setZoom:");
+    this.log("setZoom: " + res);
 
     res = Math.max(res, 0);
     res = Math.min(res, this.num_resolutions - 1);
@@ -670,6 +678,8 @@ var IIPMooViewer = new Class({
 
     var d = Math.round(this.view.w / 4);
 
+    this.log("key: code = " + e.code);
+
     switch (e.code) {
     case 37: // left
       this.nudge(-d, 0); 
@@ -688,15 +698,16 @@ var IIPMooViewer = new Class({
       break;
 
     case 107: // plus
+    case 187: // plus
       if (!e.control) {
-        this.setZoom(this.view.res + 1);
+        this.zoomIn();
       }
       break;
 
     case 109: // minus
     case 189: // minus
       if (!e.control) {
-        this.setZoom(this.view.res - 1);
+        this.zoomOut();
       }
       break;
 
@@ -1092,8 +1103,8 @@ var IIPMooViewer = new Class({
     this.view.y = -1;
     this.view.w = target_size.x;
     this.view.h = target_size.y;
-
-    this.setLightPosition(0, 0);
+    this.view.light_x = 0;
+    this.view.light_y = 0;
 
     // Calculate our navigation window size
     if (this.navigation) {
