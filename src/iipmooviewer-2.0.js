@@ -287,6 +287,8 @@ var IIPMooViewer = new Class({
       res: 0,                 // Current resolution
       rotation: 0,            // Current orientation, can be -ve, can be >360
       rotation_normalized: 0, // Current orientation, in 0 - 359
+      rotate_left: 0,         // centre of rotation
+      rotate_top: 0,
       light_x: 0,             // Current light position
       light_y: 0
     };
@@ -301,6 +303,8 @@ var IIPMooViewer = new Class({
       res: -1,
       rotation: -1,
       rotation_normalized: -1,
+      rotate_left: -1,
+      rotate_top: -1,
       light_x: -1,
       light_y: -1
     };
@@ -347,21 +351,59 @@ var IIPMooViewer = new Class({
     window.addEvent('domready', this.load.bind(this));
   },
 
-  /* Correctly position the canvas, taking into account images smaller than 
-   * the viewport
+  /* transform from layer coordinates to screen coordinates.
    */
-  positionCanvas: function () {
-    this.log("positionCanvas:");
+  layer2screen: function (point) {
+    var x = point[0];
+    var y = point[1];
 
-    this.canvas.setStyles({
-      left: (this.wid > this.view.w) ? 
-        -this.view.x : 
-        Math.round((this.view.w - this.wid) / 2),
-      top : (this.hei > this.view.h) ? 
-        -this.view.y : 
-        Math.round((this.view.h - this.hei) / 2)
-    });
-  },
+    x = x - this.view.rotate_left;
+    y = y - this.view.rotate_top;
+
+    var angle = 2 * Math.PI * -this.view.rotation / 360;
+    var a = Math.cos(angle);
+    var b = -Math.sin(angle);
+    var c = -b;
+    var d = a;
+
+    var x2 = a * x + b * y;
+    var y2 = c * x + d * y;
+
+    x = x2 + this.view.rotate_left;
+    y = y2 + this.view.rotate_top;
+
+    x -= this.view.x;
+    y -= this.view.y;
+
+    return [x, y];
+  }
+
+  /* transform from screen coordinates to layer coordinates
+   */
+  screen2layer: function (point) {
+    var x = point[0];
+    var y = point[1];
+
+    x += this.view.x;
+    y += this.view.y;
+
+    x = x - this.view.rotate_left;
+    y = y - this.view.rotate_top;
+
+    var angle = 2 * Math.PI * this.view.rotation.angle / 360;
+    var a = Math.cos(angle);
+    var b = -Math.sin(angle);
+    var c = -b;
+    var d = a;
+
+    var x2 = a * x + b * y;
+    var y2 = c * x + d * y;
+
+    x = x2 + this.view.rotate_left;
+    y = y2 + this.view.rotate_top;
+
+    return [x, y];
+  }
 
   /* Compare .view to the last set of values we set on the display and update
    * the bits of the display that need it.
@@ -373,6 +415,13 @@ var IIPMooViewer = new Class({
    */
   updateDisplay: function (tween) {
     this.log("updateDisplay:");
+
+    if (this.view.rotation > 0) {
+      this.view.rotation_normalized = this.view.rotation % 360;
+    }
+    else {
+      this.view.rotation_normalized = 360 - (-this.view.rotation % 360);
+    }
 
     /* Set the zoom.
      */
@@ -404,35 +453,29 @@ var IIPMooViewer = new Class({
     /* Constrain position.
      */
 
-    var layer_width;
-    var layer_height;
-
-    // layer width/height swap for the sideways rotations
-    if (this.view.rotation_normalized % 180 === 90) {
-        layer_width = this.hei;
-        layer_height = this.wid;
-    }
-    else {
-        layer_width = this.wid;
-        layer_height = this.hei;
-    }
+    // turn the screen dimensions into layerspace. We want to adjust and clip
+    // view.x/.y, which are layerspace coordinates, so we must be in
+    // layerspace. 
+    var p = this.screen2layer([this.view.w, this.view.h]);
+    var screen_width = Math.abs(p[0]);
+    var screen_height = Math.abs(p[1]);
 
     // if the layer is smaller than the screen, we centre ... otherwise, clip
     // x to the maximum range
-    if (layer_width < this.view.w) {
-        this.view.x = -(this.view.w - layer_width) / 2;
+    if (this.wid < screen_width) {
+        this.view.x = -(screen_width - this.wid) / 2;
     }
     else {
         this.view.x = Math.max(this.view.x, 0)
-        this.view.x = Math.min(this.view.x, layer_width - this.view.w);
+        this.view.x = Math.min(this.view.x, this.wid - screen_width);
     }
 
-    if (layer_height < this.view.h) {
-        this.view.y = -(this.view.h - layer_height) / 2;
+    if (this.hei < screen_height) {
+        this.view.y = -(screen_height - this.hei) / 2;
     }
     else {
         this.view.y = Math.max(this.view.y, 0)
-        this.view.y = Math.min(this.view.y, layer_height - this.view.h);
+        this.view.y = Math.min(this.view.y, this.hei - screen_height);
     }
 
     /* FIXME ... should limit touch range? we had:
@@ -453,13 +496,6 @@ var IIPMooViewer = new Class({
 
     /* Set the rotation.
      */
-
-    if (this.view.rotation > 0) {
-      this.view.rotation_normalized = this.view.rotation % 360;
-    }
-    else {
-      this.view.rotation_normalized = 360 - (-this.view.rotation % 360);
-    }
 
     this.arghView.setAngle(-this.view.rotation);
 
@@ -492,15 +528,15 @@ var IIPMooViewer = new Class({
      */
 
     // the centre of the viewport, in layer coordinates
-    var origin_x = Math.round(this.view.x + this.view.w / 2);
-    var origin_y = Math.round(this.view.y + this.view.h / 2);
+    this.view.rotate_left = Math.round(this.view.x + screen_width / 2);
+    this.view.rotate_top = Math.round(this.view.y + screen_height / 2);
 
-    var origin = origin_x + "px " + origin_y + "px";
+    var origin = this.view.rotate_left + "px " + this.view.rotate_top + "px";
 
     this.canvas.setStyle(this.CSSprefix+'transform-origin', origin);
 
     // this also scrolls the arghView
-    this.arghView.setOrigin(origin_x, origin_y);
+    this.arghView.setOrigin(this.view.rotate_left, this.view.rotate_top);
 
     /* Scroll the canvas.
      */
@@ -886,43 +922,11 @@ var IIPMooViewer = new Class({
 
     this.log("scroll: x = " + x + ", y = " + y);
 
-    var p = this.arghView.screen2layer([x, y]);
+    var p = this.screen2layer([x, y]);
+    this.view.x = -p[0];
+    this.view.y = -p[1];
 
-    this.log("   layer x = " + p[0] + ", y = " + p[1]);
-
-    var xmove;
-    var ymove;
-
-    if (this.view.rotation_normalized === 270) {
-      xmove = -y;
-      ymove = -x;
-    }
-    else {
-      xmove = -x;
-      ymove = -y;
-    }
-
-    if (this.view.rotation_normalized === 90) {
-      xmove = this.view.x - (this.view.y + y);
-      ymove = this.view.y + (this.view.x + x);
-    }
-    else if (this.view.rotation_normalized === 180) {
-      xmove = this.view.x + (this.view.x + x);
-      ymove = this.view.y + (this.view.y + y);
-    }
-    else if (this.view.rotation_normalized === 270) {
-      xmove = this.view.x + (this.view.y + y);
-      ymove = this.view.y - (this.view.x + x);
-    }
-    else {
-      xmove = -x;
-      ymove = -y;
-    }
-
-    this.view.x = xmove;
-    this.view.y = ymove;
-
-    this.log("scroll: view.x = " + this.view.x + ", view.y = " + this.view.x);
+    this.log("scroll: view.x = " + this.view.x + ", view.y = " + this.view.y);
     this.updateDisplay();
   },
 
